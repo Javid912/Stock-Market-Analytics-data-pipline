@@ -1,0 +1,26 @@
+FROM python:3.9-slim
+
+WORKDIR /dbt
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    ssh-client \
+    software-properties-common \
+    make \
+    build-essential \
+    ca-certificates \
+    libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt /
+RUN pip install --no-cache-dir -r /requirements.txt
+
+# Copy dbt project
+COPY dbt/ /dbt/
+
+# Default entrypoint
+ENTRYPOINT ["dbt"] 
