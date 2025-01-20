@@ -8,34 +8,110 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./sql/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - datapipe_network
 
-  airflow:
+  test:
+    build:
+      context: .
+      dockerfile: docker/test.Dockerfile
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    command: pytest tests/unit/test_alpha_vantage.py -v
+    networks:
+      - datapipe_network
+
+  airflow-init:
     build:
       context: .
       dockerfile: docker/airflow.Dockerfile
+    entrypoint: /bin/bash
+    command: -c 'airflow db init && airflow users create --username admin --password admin --firstname Anonymous --lastname Admin --role Admin --email admin@example.com'
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - datapipe_network
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
+    command: airflow webserver
+    depends_on:
+      - airflow-init
     env_file:
       - .env
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - datapipe_network
+    restart: unless-stopped
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: docker/airflow.Dockerfile
+    command: airflow scheduler
+    depends_on:
+      - airflow-init
+    env_file:
+      - .env
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - datapipe_network
+    restart: unless-stopped
 
   dbt:
     build:
       context: .
       dockerfile: docker/dbt.Dockerfile
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     volumes:
       - ./dbt:/dbt
+      - dbt_logs:/dbt/logs
+    networks:
+      - datapipe_network
+
+networks:
+  datapipe_network:
+    name: datapipe_network
 
 volumes:
-  postgres_data: 
+  postgres_data:
+    name: datapipe_postgres_data
+  airflow_logs:
+    name: datapipe_airflow_logs
+  dbt_logs:
+    name: datapipe_dbt_logs

@@ -15,12 +15,14 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt /
-RUN pip install --no-cache-dir -r /requirements.txt
+# Install dbt and dependencies
+RUN pip install --no-cache-dir \
+    dbt-core==1.6.1 \
+    dbt-postgres==1.6.1 \
+    psycopg2-binary==2.9.9
 
 # Copy dbt project
 COPY dbt/ /dbt/
 
 # Default entrypoint
-ENTRYPOINT ["dbt"] 
+ENTRYPOINT ["dbt"]

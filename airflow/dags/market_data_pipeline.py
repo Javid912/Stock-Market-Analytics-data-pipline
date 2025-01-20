@@ -1,7 +1,26 @@
 from datetime import datetime, timedelta
+import sys
+from pathlib import Path
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+
+# Add src to Python path
+sys.path.append(str(Path(__file__).parents[2]))
+from src.extractors.alpha_vantage import AlphaVantageClient
+
+def extract_stock_data():
+    """Extract daily stock data for specified symbols"""
+    client = AlphaVantageClient()
+    symbols = ['AAPL', 'GOOGL', 'MSFT']  # Example symbols
+    
+    for symbol in symbols:
+        try:
+            data = client.get_daily_prices(symbol)
+            print(f"Successfully extracted data for {symbol}")
+            # TODO: Save data to database or file
+        except Exception as e:
+            print(f"Error extracting data for {symbol}: {e}")
 
 default_args = {
     'owner': 'airflow',
@@ -24,7 +43,7 @@ dag = DAG(
 
 extract_market_data = PythonOperator(
     task_id='extract_market_data',
-    python_callable=lambda: print("Extracting market data..."),
+    python_callable=extract_stock_data,
     dag=dag,
 )
 
