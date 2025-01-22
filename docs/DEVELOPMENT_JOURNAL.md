@@ -62,67 +62,165 @@ datapipe_analytics/
   * Created `pytest.ini` for test configuration
 - Key Learning: Proper package structure is essential for imports to work in both local and Docker environments
 
-### Technical Decisions and Their Rationale
+### Day 3: Data Loading Layer and Testing
 
-#### 1. Docker Setup
-- **Decision**: Split Airflow into multiple services
-- **Rationale**: 
-  * Better separation of concerns
-  * Easier scaling and maintenance
-  * Follows Airflow best practices
-  * Allows independent scaling of webserver and scheduler
+#### 1. Database Schema Design
+- Created raw and staging schemas
+- Implemented JSONB storage for API data
+- Added indexes and triggers
+- Key Learning: Using JSONB type in PostgreSQL allows flexible schema evolution while maintaining query performance
 
-#### 2. Testing Strategy
-- **Decision**: Created separate test Docker container
-- **Rationale**:
-  * Ensures consistent test environment
-  * Isolates test dependencies
-  * Makes CI/CD integration easier
+#### 2. Database Loader Implementation
+- Created DatabaseLoader class with context manager pattern
+- Implemented connection pooling
+- Added error handling and logging
+- Key Learning: Context managers ensure proper resource cleanup in Python
 
-#### 3. API Client Design
-- **Decision**: Implemented comprehensive error handling and rate limiting
-- **Rationale**:
-  * Prevents API quota exhaustion
-  * Makes debugging easier
-  * Provides clear error messages
-  * Follows Python best practices
+#### 3. Testing Challenges and Solutions
+- Initial Issue: Fixture usage errors in pytest
+- Problem: Direct fixture calls instead of dependency injection
+- Solution: Properly chained fixtures and used pytest's dependency injection
+- Key Learning: Fixtures should be used as parameters, not called directly
 
-### Common Issues and Solutions
+#### 4. Test Mocking Improvements
+- Initial Issue: Type assertion failures with psycopg2.Json
+- Problem: Testing for dict instead of Json type
+- Solution: Updated assertions to handle psycopg2's Json type
+- Key Learning: Mock objects need to match the actual types used in the code
 
-#### 1. Python Import Issues
-**Problem**: Tests couldn't find the `src` module
-**Solutions**:
-1. Added empty `__init__.py` files
-2. Created `pytest.ini` with `pythonpath = .`
-3. Set `PYTHONPATH` in Docker environment
+## Technical Deep Dives
 
-#### 2. Docker Networking
-**Problem**: Services couldn't communicate
-**Solution**: Created a dedicated Docker network and added proper service dependencies
+### 1. Docker and Images
+- Docker builds create layers in images
+- Each build command creates a new layer
+- Images are immutable, containers are mutable instances
+- Best Practice: Use multi-stage builds to keep final images small
 
-#### 3. Environment Variables
-**Problem**: Configuration management across services
+### 2. Testing Components
+
+#### Fixtures in pytest
+- Purpose: Provide reusable test setup
+- Features:
+  * Dependency injection
+  * Setup and teardown handling
+  * Resource sharing between tests
+- Example:
+```python
+@pytest.fixture
+def mock_connection(mock_cursor):  # Dependencies can be other fixtures
+    conn = MagicMock()
+    conn.cursor.return_value = mock_cursor
+    return conn
+```
+
+#### Mocking Database Connections
+- Purpose: Test database code without actual database
+- Components:
+  * Mock connection objects
+  * Mock cursors
+  * Mock query results
+- Example:
+```python
+with patch('psycopg2.connect') as mock_connect:
+    mock_connect.return_value = mock_connection
+```
+
+#### Context Managers
+- Purpose: Resource management (setup/teardown)
+- Use Cases:
+  * Database connections
+  * File handling
+  * Lock management
+- Testing:
+  * Verify proper entry/exit
+  * Check resource cleanup
+  * Test error handling
+
+### 3. Database Components
+
+#### psycopg2
+- Python PostgreSQL adapter
+- Features:
+  * Native Python types to PostgreSQL conversion
+  * Connection pooling
+  * Transaction management
+  * JSON handling
+
+#### Staging Models
+- Purpose: Clean and standardize raw data
+- Components:
+  * Views or tables
+  * Data type conversions
+  * Basic validations
+- Example:
+```sql
+WITH source AS (
+    SELECT * FROM raw.daily_prices
+),
+parsed AS (
+    SELECT
+        symbol,
+        (raw_data->>'price')::numeric as price
+    FROM source
+)
+```
+
+### 4. dbt Components
+
+#### Current Setup
+1. Models:
+   - staging/stg_daily_prices.sql: Transforms raw daily prices
+   - More models needed for intraday and company data
+
+2. Schema:
+   - sources.yml: Defines raw data sources
+   - schema.yml: Defines model structure and tests
+
+#### Planned Extensions
+1. Additional Models:
+   - staging/stg_intraday_prices
+   - staging/stg_company_overview
+   - marts/dim_company
+   - marts/fact_daily_trading
+
+2. Tests:
+   - Data quality checks
+   - Business logic validation
+   - Relationship checks
+
+## Common Issues and Solutions
+
+### 1. Fixture Usage Errors
+**Problem**: `Fixture "mock_connection" called directly`
 **Solution**: 
-- Created comprehensive `.env.example`
-- Used environment file in docker-compose
-- Added proper variable substitution
+- Use fixtures as parameters
+- Chain fixture dependencies
+- Don't call fixtures directly
 
-### Next Steps
+### 2. Type Assertions in Tests
+**Problem**: Json type mismatch
+**Solution**:
+```python
+assert isinstance(call_args[1][1], Json)
+assert call_args[1][1].adapted == data
+```
 
-1. Data Loading Layer:
-- Create PostgreSQL schema
-- Design staging tables
-- Implement incremental loading logic
+## Next Steps
 
-2. Data Transformation:
-- Set up dbt models
-- Create staging views
-- Implement business logic
+1. Data Transformation:
+- Create remaining staging models
+- Implement marts layer
+- Add data quality tests
 
-3. Pipeline Orchestration:
-- Enhance Airflow DAGs
+2. Pipeline Orchestration:
+- Fix Airflow module imports
+- Create comprehensive DAG
 - Add proper scheduling
-- Implement error handling
+
+3. Monitoring:
+- Add logging
+- Implement error tracking
+- Create dashboards
 
 ### Best Practices Learned
 

@@ -28,9 +28,12 @@ services:
       - .:/app
     env_file:
       - .env
-    command: pytest tests/unit/test_alpha_vantage.py -v
+    command: pytest tests/unit/ -v
     networks:
       - datapipe_network
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   airflow-init:
     build:

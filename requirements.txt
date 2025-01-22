@@ -5,3 +5,5 @@ pytest==7.4.3
 black==23.11.0
 flake8==6.1.0
 mypy==1.7.0
+psycopg2-binary==2.9.9
+pytest-mock==3.12.0  # For better mocking in tests
