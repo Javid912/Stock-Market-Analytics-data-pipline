@@ -30,4 +30,50 @@
 ### Next Steps
 1. Resolve database connectivity by updating connection configuration
 2. Implement proper error handling in dashboard for database connection issues
-3. Add connection retry logic with appropriate timeout settings 
+3. Add connection retry logic with appropriate timeout settings
+
+## Day 8: DAG Implementation and Import Error Resolution
+
+### Airflow DAG Implementation and Debugging
+- **Initial Challenge**: Import error in Airflow DAG
+  - Error: `ModuleNotFoundError: No module named 'src'`
+  - Root cause: Python path configuration in Docker container
+  - Resolution: Added src directory to Python path in DAG file and updated Airflow Dockerfile
+
+### Current DAG Architecture
+1. **Data Extraction (Task 1)**:
+   - Fetches daily stock data for key tech companies (AAPL, GOOGL, MSFT)
+   - Implements rate limiting for API calls
+   - Stores raw JSON responses in PostgreSQL
+
+2. **Data Transformation (Task 2)**:
+   - Executes dbt models for data transformation
+   - Creates staging views for cleaned data
+   - Builds dimensional model for company analytics
+
+### Technical Learnings
+1. **Airflow Configuration**:
+   - Importance of proper Python path setup in containerized environments
+   - Best practices for organizing custom modules in Airflow
+   - Effective use of Airflow's BashOperator for dbt integration
+
+2. **Data Pipeline Architecture**:
+   - Separation of concerns between extraction and transformation
+   - Benefits of using dbt for transformation layer
+   - Importance of proper error handling in API calls
+
+### Next Steps
+1. **Pipeline Enhancement**:
+   - Add more stock symbols for broader market coverage
+   - Implement intraday data collection
+   - Add error notifications via email/Slack
+   
+2. **Data Quality**:
+   - Implement data freshness checks
+   - Add data quality tests in dbt
+   - Monitor API rate limits and failures
+
+3. **Dashboard Improvements**:
+   - Add technical indicators (Moving averages, RSI)
+   - Implement real-time price updates
+   - Add portfolio tracking functionality 
