@@ -1,0 +1,194 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: daily_prices
+        description: Raw daily stock prices from Alpha Vantage
+        columns:
+          - name: id
+            description: Primary key
+            tests:
+              - unique
+              - not_null
+          - name: symbol
+            description: Stock symbol
+            tests:
+              - not_null
+          - name: raw_data
+            description: Raw JSON data from API
+            tests:
+              - not_null
+          - name: extracted_at
+            description: Timestamp when data was extracted
+            tests:
+              - not_null
+
+      - name: intraday_prices
+        description: Raw intraday stock prices from Alpha Vantage
+        columns:
+          - name: id
+            description: Primary key
+            tests:
+              - unique
+              - not_null
+          - name: symbol
+            description: Stock symbol
+            tests:
+              - not_null
+          - name: interval
+            description: Time interval for price data
+            tests:
+              - not_null
+          - name: raw_data
+            description: Raw JSON data from API
+            tests:
+              - not_null
+          - name: extracted_at
+            description: Timestamp when data was extracted
+            tests:
+              - not_null
+
+      - name: company_overview
+        description: Raw company information from Alpha Vantage
+        columns:
+          - name: id
+            description: Primary key
+            tests:
+              - unique
+              - not_null
+          - name: symbol
+            description: Stock symbol
+            tests:
+              - not_null
+          - name: raw_data
+            description: Raw JSON data from API
+            tests:
+              - not_null
+          - name: extracted_at
+            description: Timestamp when data was extracted
+            tests:
+              - not_null
+
+models:
+  - name: stg_daily_prices
+    description: Cleaned and parsed daily stock prices
+    columns:
+      - name: symbol
+        description: Stock symbol
+        tests:
+          - not_null
+      - name: trading_date
+        description: Date of the trading day
+        tests:
+          - not_null
+      - name: open_price
+        description: Opening price
+        tests:
+          - not_null
+      - name: high_price
+        description: Highest price
+        tests:
+          - not_null
+      - name: low_price
+        description: Lowest price
+        tests:
+          - not_null
+      - name: close_price
+        description: Closing price
+        tests:
+          - not_null
+      - name: volume
+        description: Trading volume
+        tests:
+          - not_null
+      - name: extracted_at
+        description: Timestamp when data was extracted
+        tests:
+          - not_null
+      - name: transformed_at
+        description: Timestamp when data was transformed
+        tests:
+          - not_null
+
+  - name: stg_intraday_prices
+    description: Cleaned and parsed intraday stock prices
+    columns:
+      - name: symbol
+        description: Stock symbol
+        tests:
+          - not_null
+      - name: interval
+        description: Time interval
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['1min', '5min', '15min', '30min', '60min']
+      - name: trading_timestamp
+        description: Timestamp of the trade
+        tests:
+          - not_null
+      - name: open_price
+        description: Opening price
+        tests:
+          - not_null
+      - name: high_price
+        description: Highest price
+        tests:
+          - not_null
+      - name: low_price
+        description: Lowest price
+        tests:
+          - not_null
+      - name: close_price
+        description: Closing price
+        tests:
+          - not_null
+      - name: volume
+        description: Trading volume
+        tests:
+          - not_null
+      - name: extracted_at
+        description: Timestamp when data was extracted
+        tests:
+          - not_null
+      - name: transformed_at
+        description: Timestamp when data was transformed
+        tests:
+          - not_null
+
+  - name: stg_company_overview
+    description: Cleaned and parsed company information
+    columns:
+      - name: symbol
+        description: Stock symbol
+        tests:
+          - not_null
+          - unique
+      - name: company_name
+        description: Company name
+        tests:
+          - not_null
+      - name: exchange
+        description: Stock exchange
+        tests:
+          - not_null
+      - name: sector
+        description: Business sector
+      - name: industry
+        description: Business industry
+      - name: market_cap
+        description: Market capitalization
+      - name: pe_ratio
+        description: Price to earnings ratio
+      - name: dividend_yield
+        description: Dividend yield percentage
+      - name: extracted_at
+        description: Timestamp when data was extracted
+        tests:
+          - not_null
+      - name: transformed_at
+        description: Timestamp when data was transformed
+        tests:
+          - not_null 

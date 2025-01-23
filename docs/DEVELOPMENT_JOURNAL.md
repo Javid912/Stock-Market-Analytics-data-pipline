@@ -88,6 +88,31 @@ datapipe_analytics/
 - Solution: Updated assertions to handle psycopg2's Json type
 - Key Learning: Mock objects need to match the actual types used in the code
 
+### Day 4: Data Transformation Layer
+
+#### 1. Staging Models Implementation
+- Created three staging models:
+  * `stg_daily_prices`: Transform raw daily price data
+  * `stg_intraday_prices`: Transform intraday trading data
+  * `stg_company_overview`: Transform company information
+- Key Learning: Using PostgreSQL JSONB operators for efficient data extraction
+
+#### 2. Mart Layer Design
+- Created dimension table:
+  * `dim_company`: Combines company info with trading stats
+- Implemented smart aggregations:
+  * Latest company information using window functions
+  * 30-day trading statistics
+- Key Learning: Using window functions for temporal data management
+
+#### 3. Data Quality Framework
+- Implemented comprehensive testing:
+  * Not null constraints
+  * Uniqueness checks
+  * Value validation (e.g., valid intervals)
+  * Cross-model relationships
+- Key Learning: Balance between data quality and transformation flexibility
+
 ## Technical Deep Dives
 
 ### 1. Docker and Images
@@ -188,6 +213,139 @@ parsed AS (
    - Business logic validation
    - Relationship checks
 
+### 1. dbt Model Architecture
+
+#### Staging Layer
+- Purpose: Clean and standardize raw data
+- Features:
+  * JSON parsing
+  * Data type casting
+  * Basic validation
+- Example:
+```sql
+SELECT
+    symbol,
+    (raw_data->>'price')::NUMERIC as price,
+    timestamp::TIMESTAMP as trading_time
+FROM raw_data
+```
+
+#### Mart Layer
+- Purpose: Business-level transformations
+- Features:
+  * Dimensional modeling
+  * Aggregations
+  * Business rules
+- Example:
+```sql
+WITH latest_data AS (
+    SELECT *,
+    ROW_NUMBER() OVER (
+        PARTITION BY symbol 
+        ORDER BY extracted_at DESC
+    ) as rn
+    FROM stg_company_overview
+)
+```
+
+### 2. Data Testing Strategy
+
+#### Test Types
+1. Schema Tests:
+   - Not null validation
+   - Unique constraints
+   - Accepted values
+   - Relationships
+
+2. Data Quality Tests:
+   - Value ranges
+   - Data freshness
+   - Completeness
+
+3. Business Logic Tests:
+   - Aggregation accuracy
+   - Temporal consistency
+   - Cross-model relationships
+
+### 3. SQL Patterns and Best Practices
+
+#### Common Table Expressions (CTEs)
+- Purpose: Break down complex logic
+- Benefits:
+  * Improved readability
+  * Easier maintenance
+  * Better performance
+- Example:
+```sql
+WITH source AS (
+    SELECT * FROM raw
+),
+transformed AS (
+    SELECT * FROM source
+)
+SELECT * FROM transformed
+```
+
+#### Window Functions
+- Purpose: Temporal and partitioned analysis
+- Use Cases:
+  * Latest records
+  * Running totals
+  * Moving averages
+- Example:
+```sql
+ROW_NUMBER() OVER (
+    PARTITION BY symbol 
+    ORDER BY extracted_at DESC
+)
+```
+
+## Lessons Learned
+
+### 1. Data Modeling
+- Start with staging models for clean data
+- Use dimensional modeling for analytics
+- Implement incremental processing where possible
+
+### 2. Testing
+- Test at both staging and mart levels
+- Validate business logic explicitly
+- Use dbt's built-in test framework
+
+### 3. Performance
+- Use appropriate indexes
+- Optimize JSON queries
+- Consider materialization strategies
+
+## Next Steps
+
+1. Fact Tables:
+- Create `fact_daily_trading`
+- Create `fact_intraday_trading`
+- Implement trading metrics
+
+2. Custom Tests:
+- Add data freshness tests
+- Implement value range validations
+- Create cross-model relationship tests
+
+3. Documentation:
+- Add column-level documentation
+- Create data lineage diagrams
+- Document business rules
+
+## Questions to Consider
+1. How to handle late-arriving data?
+2. What incremental processing strategy to use?
+3. How to optimize for query performance?
+
+## Best Practices Established
+1. Always use CTEs for complex transformations
+2. Document assumptions in models
+3. Test both technical and business requirements
+4. Use consistent naming conventions
+5. Implement proper error handling
+
 ## Common Issues and Solutions
 
 ### 1. Fixture Usage Errors
@@ -205,24 +363,7 @@ assert isinstance(call_args[1][1], Json)
 assert call_args[1][1].adapted == data
 ```
 
-## Next Steps
-
-1. Data Transformation:
-- Create remaining staging models
-- Implement marts layer
-- Add data quality tests
-
-2. Pipeline Orchestration:
-- Fix Airflow module imports
-- Create comprehensive DAG
-- Add proper scheduling
-
-3. Monitoring:
-- Add logging
-- Implement error tracking
-- Create dashboards
-
-### Best Practices Learned
+## Best Practices Learned
 
 1. Docker:
 - Use multi-stage builds when possible

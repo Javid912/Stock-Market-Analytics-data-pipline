@@ -1,9 +1,11 @@
-python-dotenv==1.0.0
+python-dotenv>=1.0.0
 requests==2.31.0
-pandas==1.5.3
+pandas~=1.5.3
 pytest==7.4.3
 black==23.11.0
 flake8==6.1.0
 mypy==1.7.0
-psycopg2-binary==2.9.9
+psycopg2-binary>=2.9.9
 pytest-mock==3.12.0  # For better mocking in tests
+streamlit~=1.24.0
+plotly>=5.18.0
