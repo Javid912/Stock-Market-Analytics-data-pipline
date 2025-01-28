@@ -125,7 +125,7 @@ models:
           - not_null
           - accepted_values:
               values: ['1min', '5min', '15min', '30min', '60min']
-      - name: trading_timestamp
+      - name: datetime
         description: Timestamp of the trade
         tests:
           - not_null

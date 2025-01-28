@@ -26,5 +26,5 @@ SELECT
     (raw_data->>'52WeekLow')::NUMERIC as fifty_two_week_low,
     raw_data->>'AnalystTargetPrice' as analyst_target_price,
     extracted_at,
-    {{ dbt_utils.current_timestamp() }} as transformed_at
+    current_timestamp as transformed_at
 FROM source 

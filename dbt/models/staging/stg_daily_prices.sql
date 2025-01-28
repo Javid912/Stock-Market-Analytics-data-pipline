@@ -29,5 +29,5 @@ SELECT
     close_price,
     volume,
     extracted_at,
-    {{ dbt_utils.current_timestamp() }} as transformed_at
+    current_timestamp as transformed_at
 FROM parsed 
