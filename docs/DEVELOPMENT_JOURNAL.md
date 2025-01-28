@@ -62,69 +62,308 @@ datapipe_analytics/
   * Created `pytest.ini` for test configuration
 - Key Learning: Proper package structure is essential for imports to work in both local and Docker environments
 
-### Technical Decisions and Their Rationale
+### Day 3: Data Loading Layer and Testing
 
-#### 1. Docker Setup
-- **Decision**: Split Airflow into multiple services
-- **Rationale**: 
-  * Better separation of concerns
-  * Easier scaling and maintenance
-  * Follows Airflow best practices
-  * Allows independent scaling of webserver and scheduler
+#### 1. Database Schema Design
+- Created raw and staging schemas
+- Implemented JSONB storage for API data
+- Added indexes and triggers
+- Key Learning: Using JSONB type in PostgreSQL allows flexible schema evolution while maintaining query performance
 
-#### 2. Testing Strategy
-- **Decision**: Created separate test Docker container
-- **Rationale**:
-  * Ensures consistent test environment
-  * Isolates test dependencies
-  * Makes CI/CD integration easier
+#### 2. Database Loader Implementation
+- Created DatabaseLoader class with context manager pattern
+- Implemented connection pooling
+- Added error handling and logging
+- Key Learning: Context managers ensure proper resource cleanup in Python
 
-#### 3. API Client Design
-- **Decision**: Implemented comprehensive error handling and rate limiting
-- **Rationale**:
-  * Prevents API quota exhaustion
-  * Makes debugging easier
-  * Provides clear error messages
-  * Follows Python best practices
+#### 3. Testing Challenges and Solutions
+- Initial Issue: Fixture usage errors in pytest
+- Problem: Direct fixture calls instead of dependency injection
+- Solution: Properly chained fixtures and used pytest's dependency injection
+- Key Learning: Fixtures should be used as parameters, not called directly
 
-### Common Issues and Solutions
+#### 4. Test Mocking Improvements
+- Initial Issue: Type assertion failures with psycopg2.Json
+- Problem: Testing for dict instead of Json type
+- Solution: Updated assertions to handle psycopg2's Json type
+- Key Learning: Mock objects need to match the actual types used in the code
 
-#### 1. Python Import Issues
-**Problem**: Tests couldn't find the `src` module
-**Solutions**:
-1. Added empty `__init__.py` files
-2. Created `pytest.ini` with `pythonpath = .`
-3. Set `PYTHONPATH` in Docker environment
+### Day 4: Data Transformation Layer
 
-#### 2. Docker Networking
-**Problem**: Services couldn't communicate
-**Solution**: Created a dedicated Docker network and added proper service dependencies
+#### 1. Staging Models Implementation
+- Created three staging models:
+  * `stg_daily_prices`: Transform raw daily price data
+  * `stg_intraday_prices`: Transform intraday trading data
+  * `stg_company_overview`: Transform company information
+- Key Learning: Using PostgreSQL JSONB operators for efficient data extraction
 
-#### 3. Environment Variables
-**Problem**: Configuration management across services
+#### 2. Mart Layer Design
+- Created dimension table:
+  * `dim_company`: Combines company info with trading stats
+- Implemented smart aggregations:
+  * Latest company information using window functions
+  * 30-day trading statistics
+- Key Learning: Using window functions for temporal data management
+
+#### 3. Data Quality Framework
+- Implemented comprehensive testing:
+  * Not null constraints
+  * Uniqueness checks
+  * Value validation (e.g., valid intervals)
+  * Cross-model relationships
+- Key Learning: Balance between data quality and transformation flexibility
+
+## Technical Deep Dives
+
+### 1. Docker and Images
+- Docker builds create layers in images
+- Each build command creates a new layer
+- Images are immutable, containers are mutable instances
+- Best Practice: Use multi-stage builds to keep final images small
+
+### 2. Testing Components
+
+#### Fixtures in pytest
+- Purpose: Provide reusable test setup
+- Features:
+  * Dependency injection
+  * Setup and teardown handling
+  * Resource sharing between tests
+- Example:
+```python
+@pytest.fixture
+def mock_connection(mock_cursor):  # Dependencies can be other fixtures
+    conn = MagicMock()
+    conn.cursor.return_value = mock_cursor
+    return conn
+```
+
+#### Mocking Database Connections
+- Purpose: Test database code without actual database
+- Components:
+  * Mock connection objects
+  * Mock cursors
+  * Mock query results
+- Example:
+```python
+with patch('psycopg2.connect') as mock_connect:
+    mock_connect.return_value = mock_connection
+```
+
+#### Context Managers
+- Purpose: Resource management (setup/teardown)
+- Use Cases:
+  * Database connections
+  * File handling
+  * Lock management
+- Testing:
+  * Verify proper entry/exit
+  * Check resource cleanup
+  * Test error handling
+
+### 3. Database Components
+
+#### psycopg2
+- Python PostgreSQL adapter
+- Features:
+  * Native Python types to PostgreSQL conversion
+  * Connection pooling
+  * Transaction management
+  * JSON handling
+
+#### Staging Models
+- Purpose: Clean and standardize raw data
+- Components:
+  * Views or tables
+  * Data type conversions
+  * Basic validations
+- Example:
+```sql
+WITH source AS (
+    SELECT * FROM raw.daily_prices
+),
+parsed AS (
+    SELECT
+        symbol,
+        (raw_data->>'price')::numeric as price
+    FROM source
+)
+```
+
+### 4. dbt Components
+
+#### Current Setup
+1. Models:
+   - staging/stg_daily_prices.sql: Transforms raw daily prices
+   - More models needed for intraday and company data
+
+2. Schema:
+   - sources.yml: Defines raw data sources
+   - schema.yml: Defines model structure and tests
+
+#### Planned Extensions
+1. Additional Models:
+   - staging/stg_intraday_prices
+   - staging/stg_company_overview
+   - marts/dim_company
+   - marts/fact_daily_trading
+
+2. Tests:
+   - Data quality checks
+   - Business logic validation
+   - Relationship checks
+
+### 1. dbt Model Architecture
+
+#### Staging Layer
+- Purpose: Clean and standardize raw data
+- Features:
+  * JSON parsing
+  * Data type casting
+  * Basic validation
+- Example:
+```sql
+SELECT
+    symbol,
+    (raw_data->>'price')::NUMERIC as price,
+    timestamp::TIMESTAMP as trading_time
+FROM raw_data
+```
+
+#### Mart Layer
+- Purpose: Business-level transformations
+- Features:
+  * Dimensional modeling
+  * Aggregations
+  * Business rules
+- Example:
+```sql
+WITH latest_data AS (
+    SELECT *,
+    ROW_NUMBER() OVER (
+        PARTITION BY symbol 
+        ORDER BY extracted_at DESC
+    ) as rn
+    FROM stg_company_overview
+)
+```
+
+### 2. Data Testing Strategy
+
+#### Test Types
+1. Schema Tests:
+   - Not null validation
+   - Unique constraints
+   - Accepted values
+   - Relationships
+
+2. Data Quality Tests:
+   - Value ranges
+   - Data freshness
+   - Completeness
+
+3. Business Logic Tests:
+   - Aggregation accuracy
+   - Temporal consistency
+   - Cross-model relationships
+
+### 3. SQL Patterns and Best Practices
+
+#### Common Table Expressions (CTEs)
+- Purpose: Break down complex logic
+- Benefits:
+  * Improved readability
+  * Easier maintenance
+  * Better performance
+- Example:
+```sql
+WITH source AS (
+    SELECT * FROM raw
+),
+transformed AS (
+    SELECT * FROM source
+)
+SELECT * FROM transformed
+```
+
+#### Window Functions
+- Purpose: Temporal and partitioned analysis
+- Use Cases:
+  * Latest records
+  * Running totals
+  * Moving averages
+- Example:
+```sql
+ROW_NUMBER() OVER (
+    PARTITION BY symbol 
+    ORDER BY extracted_at DESC
+)
+```
+
+## Lessons Learned
+
+### 1. Data Modeling
+- Start with staging models for clean data
+- Use dimensional modeling for analytics
+- Implement incremental processing where possible
+
+### 2. Testing
+- Test at both staging and mart levels
+- Validate business logic explicitly
+- Use dbt's built-in test framework
+
+### 3. Performance
+- Use appropriate indexes
+- Optimize JSON queries
+- Consider materialization strategies
+
+## Next Steps
+
+1. Fact Tables:
+- Create `fact_daily_trading`
+- Create `fact_intraday_trading`
+- Implement trading metrics
+
+2. Custom Tests:
+- Add data freshness tests
+- Implement value range validations
+- Create cross-model relationship tests
+
+3. Documentation:
+- Add column-level documentation
+- Create data lineage diagrams
+- Document business rules
+
+## Questions to Consider
+1. How to handle late-arriving data?
+2. What incremental processing strategy to use?
+3. How to optimize for query performance?
+
+## Best Practices Established
+1. Always use CTEs for complex transformations
+2. Document assumptions in models
+3. Test both technical and business requirements
+4. Use consistent naming conventions
+5. Implement proper error handling
+
+## Common Issues and Solutions
+
+### 1. Fixture Usage Errors
+**Problem**: `Fixture "mock_connection" called directly`
 **Solution**: 
-- Created comprehensive `.env.example`
-- Used environment file in docker-compose
-- Added proper variable substitution
+- Use fixtures as parameters
+- Chain fixture dependencies
+- Don't call fixtures directly
 
-### Next Steps
+### 2. Type Assertions in Tests
+**Problem**: Json type mismatch
+**Solution**:
+```python
+assert isinstance(call_args[1][1], Json)
+assert call_args[1][1].adapted == data
+```
 
-1. Data Loading Layer:
-- Create PostgreSQL schema
-- Design staging tables
-- Implement incremental loading logic
-
-2. Data Transformation:
-- Set up dbt models
-- Create staging views
-- Implement business logic
-
-3. Pipeline Orchestration:
-- Enhance Airflow DAGs
-- Add proper scheduling
-- Implement error handling
-
-### Best Practices Learned
+## Best Practices Learned
 
 1. Docker:
 - Use multi-stage builds when possible

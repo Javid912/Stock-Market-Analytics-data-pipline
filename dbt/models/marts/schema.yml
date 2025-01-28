@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: dim_company
+    description: Company dimension table with latest information
+    columns:
+      - name: symbol
+        description: Stock symbol (primary key)
+        tests:
+          - unique
+          - not_null
+      - name: company_name
+        description: Company name
+        tests:
+          - not_null
+      - name: exchange
+        description: Stock exchange
+        tests:
+          - not_null
+      - name: sector
+        description: Business sector
+      - name: industry
+        description: Business industry
+      - name: country
+        description: Country of incorporation
+      - name: currency
+        description: Trading currency
+        tests:
+          - not_null
+      - name: description
+        description: Company description
+      - name: market_cap
+        description: Market capitalization
+        tests:
+          - not_null
+      - name: ebitda
+        description: Earnings before interest, taxes, depreciation, and amortization
+      - name: pe_ratio
+        description: Price to earnings ratio
+      - name: peg_ratio
+        description: Price/earnings to growth ratio
+      - name: book_value
+        description: Book value per share
+      - name: dividend_per_share
+        description: Dividend per share
+      - name: dividend_yield
+        description: Dividend yield percentage
+      - name: fifty_two_week_high
+        description: 52-week high price
+      - name: fifty_two_week_low
+        description: 52-week low price
+      - name: analyst_target_price
+        description: Analyst consensus target price
+      - name: last_close_price
+        description: Latest closing price
+      - name: avg_daily_volume
+        description: Average daily trading volume (30 days)
+      - name: last_updated_at
+        description: Last time the record was updated
+        tests:
+          - not_null 

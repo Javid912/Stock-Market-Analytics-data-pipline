@@ -21,15 +21,26 @@ wheels/
 *.egg
 
 # Virtual Environment
+.venv/
 venv/
 ENV/
 env/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.swn
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
 
 # Airflow
 airflow/logs/
@@ -39,19 +50,54 @@ airflow/*.log
 airflow.cfg
 airflow.db
 webserver_config.py
+airflow-webserver.pid
 
 # DBT
 dbt/target/
 dbt/dbt_modules/
+dbt/dbt_packages/
 dbt/logs/
+.user.yml
 
 # Environment variables
 .env
-.env.local
+.env.*
+!.env.example
 
 # Docker
 .docker/
+*.env.dashboard
 
 # Operating System
 .DS_Store
 Thumbs.db
+*.tmp
+*.bak
+*.swp
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage reports
+coverage/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Development Documents
+docs/development_journal.md
+docs/container_best_practices.md
+docs/internal/
+*.draft.md
