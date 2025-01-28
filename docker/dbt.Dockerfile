@@ -1,28 +1,32 @@
 FROM python:3.9-slim
 
-WORKDIR /dbt
-
 # Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git \
-    ssh-client \
-    software-properties-common \
-    make \
-    build-essential \
-    ca-certificates \
-    libpq-dev \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        libpq-dev \
+        build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dbt and dependencies
-RUN pip install --no-cache-dir \
-    dbt-core==1.6.1 \
-    dbt-postgres==1.6.1 \
-    psycopg2-binary==2.9.9
+# Create dbt directory
+WORKDIR /dbt
 
-# Copy dbt project
-COPY dbt/ /dbt/
+# Copy requirements file
+COPY requirements.txt /dbt/requirements.txt
 
-# Default entrypoint
-ENTRYPOINT ["dbt"]
+# Install Python packages
+RUN pip install --no-cache-dir -r /dbt/requirements.txt
+
+# Set environment variables
+ENV DBT_PROFILES_DIR=/dbt
+ENV PYTHONPATH=/dbt:${PYTHONPATH}
+
+# Create non-root user
+RUN useradd -m -s /bin/bash dbt_user \
+    && chown -R dbt_user:dbt_user /dbt
+
+USER dbt_user
+
+# Default command
+CMD ["dbt", "--version"]
