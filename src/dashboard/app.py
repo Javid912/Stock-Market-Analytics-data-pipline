@@ -19,12 +19,12 @@ for key in ['POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB', 'POSTGRES_HOST'
         del os.environ[key]
 
 # Load dashboard-specific environment variables
-dashboard_dir = Path(__file__).parent
-env_path = dashboard_dir / '.env'
+project_root = Path(__file__).parent.parent.parent
+env_path = project_root / '.env.dashboard'
 if not env_path.exists():
-    st.error(f"Could not find .env file in {dashboard_dir}")
+    st.error(f"Could not find .env.dashboard file in {project_root}")
 else:
-    st.success(f"Found .env file at {env_path}")
+    st.success(f"Found .env.dashboard file at {env_path}")
     load_dotenv(env_path)
 
 # Debug connection parameters

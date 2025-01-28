@@ -1,7 +1,12 @@
 from datetime import datetime, timedelta
+import sys
+from pathlib import Path
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from scripts.backup_db import create_backup
+
+# Add src to Python path
+sys.path.append('/opt/airflow/src')
+from backup_db import create_backup
 
 default_args = {
     'owner': 'airflow',
