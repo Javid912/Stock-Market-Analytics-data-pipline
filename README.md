@@ -13,6 +13,7 @@ This project implements a robust data engineering pipeline that processes financ
 - **Scalable Architecture**: Containerized services with proper health checks and dependency management
 - **Monitoring**: Built-in logging and health monitoring for all services
 - **Documentation**: Extensive documentation of models, tests, and best practices
+- **Analytics Dashboard**: Interactive Streamlit dashboard for market analysis and visualization
 
 ### Tech Stack
 

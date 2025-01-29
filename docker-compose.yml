@@ -113,15 +113,44 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     env_file:
       - .env
     volumes:
       - ./dbt:/dbt
-      - dbt_logs:/dbt/logs
     environment:
       - DBT_PROFILES_DIR=/dbt
+    user: root
     networks:
       - datapipe_network
+
+  dashboard:
+    build:
+      context: ./src/dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dbt:
+        condition: service_completed_successfully
+    networks:
+      - datapipe_network
+    volumes:
+      - ./src/dashboard:/app
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
 
 networks:
   datapipe_network:

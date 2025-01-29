@@ -1,0 +1,58 @@
+version: 2
+
+sources:
+  - name: raw
+    database: postgres
+    schema: raw
+    tables:
+      - name: stock_prices
+        description: Raw daily stock price data
+        columns:
+          - name: symbol
+            description: Stock ticker symbol
+          - name: date
+            description: Trading date
+          - name: open
+            description: Opening price
+          - name: high
+            description: High price
+          - name: low
+            description: Low price
+          - name: close
+            description: Closing price
+          - name: volume
+            description: Trading volume
+      
+      - name: company_info
+        description: Raw company information
+        columns:
+          - name: symbol
+            description: Stock ticker symbol
+          - name: company_name
+            description: Company name
+          - name: sector
+            description: Business sector
+          - name: industry
+            description: Specific industry
+          - name: country
+            description: Country of incorporation
+          - name: shares_outstanding
+            description: Number of shares outstanding
+          - name: currency
+            description: Trading currency
+          - name: earnings_per_share
+            description: Earnings per share
+
+models:
+  - name: fact_market_metrics
+    description: Daily market-wide metrics by sector
+    columns:
+      - name: trading_date
+        tests:
+          - not_null
+      - name: sector
+        tests:
+          - not_null
+      - name: total_market_cap
+        tests:
+          - positive 

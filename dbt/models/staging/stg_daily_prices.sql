@@ -1,33 +1,22 @@
 WITH source AS (
-    SELECT 
-        symbol,
-        raw_data,
-        extracted_at
-    FROM {{ source('raw', 'daily_prices') }}
+    SELECT * FROM {{ source('raw', 'raw_stock_prices') }}
 ),
 
-parsed AS (
+staged AS (
     SELECT
         symbol,
-        date::DATE as trading_date,
-        (raw_data->'Time Series (Daily)'->date->>'1. open')::NUMERIC as open_price,
-        (raw_data->'Time Series (Daily)'->date->>'2. high')::NUMERIC as high_price,
-        (raw_data->'Time Series (Daily)'->date->>'3. low')::NUMERIC as low_price,
-        (raw_data->'Time Series (Daily)'->date->>'4. close')::NUMERIC as close_price,
-        (raw_data->'Time Series (Daily)'->date->>'5. volume')::NUMERIC as volume,
-        extracted_at
+        date AS trading_date,
+        CAST(open AS DECIMAL(10,2)) AS open_price,
+        CAST(high AS DECIMAL(10,2)) AS high_price,
+        CAST(low AS DECIMAL(10,2)) AS low_price,
+        CAST(close AS DECIMAL(10,2)) AS close_price,
+        CAST(volume AS BIGINT) AS volume,
+        CURRENT_TIMESTAMP as extracted_at,
+        CURRENT_TIMESTAMP as transformed_at
     FROM source
-    CROSS JOIN LATERAL jsonb_object_keys(raw_data->'Time Series (Daily)') as date
+    WHERE symbol IS NOT NULL
+      AND date IS NOT NULL
+      AND close IS NOT NULL
 )
 
-SELECT 
-    symbol,
-    trading_date,
-    open_price,
-    high_price,
-    low_price,
-    close_price,
-    volume,
-    extracted_at,
-    current_timestamp as transformed_at
-FROM parsed 
+SELECT * FROM staged 
