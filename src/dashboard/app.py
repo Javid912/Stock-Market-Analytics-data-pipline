@@ -14,6 +14,7 @@ import logging
 import traceback
 import time
 import sys
+import ta  # Technical Analysis library
 
 # Configure logging
 logging.basicConfig(
@@ -24,18 +25,18 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger('tech_market_dashboard')
+logger = logging.getLogger('market_analytics_dashboard')
 
 # Page configuration
 st.set_page_config(
-    page_title="Tech Market Analytics",
+    page_title="Market Analytics Dashboard",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Debug mode
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Function to handle and display errors
 def handle_error(error: Exception, context: str, show_traceback: bool = True):
@@ -501,4 +502,227 @@ st.markdown("---")
 st.markdown(
     f"Data refreshes hourly. Last update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. "
     "Built with ❤️ using Streamlit, Plotly, and dbt."
-) 
+)
+
+# Technical Analysis Functions
+def calculate_technical_indicators(df):
+    """Calculate technical indicators for the given dataframe"""
+    # Ensure we have OHLCV data
+    required_columns = ['open', 'high', 'low', 'close', 'volume']
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError("Missing required OHLCV columns")
+    
+    # Moving Averages
+    df['SMA_20'] = ta.trend.sma_indicator(df['close'], window=20)
+    df['EMA_20'] = ta.trend.ema_indicator(df['close'], window=20)
+    
+    # Bollinger Bands
+    bollinger = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
+    df['BB_upper'] = bollinger.bollinger_hband()
+    df['BB_lower'] = bollinger.bollinger_lband()
+    df['BB_middle'] = bollinger.bollinger_mavg()
+    
+    # RSI
+    df['RSI'] = ta.momentum.rsi(df['close'], window=14)
+    
+    # MACD
+    macd = ta.trend.MACD(df['close'])
+    df['MACD'] = macd.macd()
+    df['MACD_signal'] = macd.macd_signal()
+    df['MACD_hist'] = macd.macd_diff()
+    
+    return df
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_market_data(symbol, days=180):
+    """Fetch market data for a given symbol"""
+    try:
+        with get_db_connection() as conn:
+            query = """
+                SELECT 
+                    dp.date,
+                    dp.open,
+                    dp.high,
+                    dp.low,
+                    dp.close,
+                    dp.volume,
+                    dp.adjusted_close,
+                    c.sector,
+                    c.industry,
+                    c.market_cap
+                FROM marts.fact_daily_prices dp
+                JOIN marts.dim_company c ON dp.symbol = c.symbol
+                WHERE dp.symbol = %s
+                AND dp.date >= NOW() - INTERVAL '%s days'
+                ORDER BY dp.date ASC;
+            """
+            df = pd.read_sql_query(query, conn, params=(symbol, days))
+            df['date'] = pd.to_datetime(df['date'])
+            return calculate_technical_indicators(df)
+    except Exception as e:
+        handle_error(e, "fetch_market_data")
+        return None
+
+def create_price_chart(df, symbol):
+    """Create an interactive price chart with technical indicators"""
+    fig = make_subplots(rows=3, cols=1, 
+                       shared_xaxes=True,
+                       vertical_spacing=0.05,
+                       row_heights=[0.6, 0.2, 0.2])
+    
+    # Candlestick chart
+    fig.add_trace(
+        go.Candlestick(
+            x=df['date'],
+            open=df['open'],
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            name='OHLC'
+        ),
+        row=1, col=1
+    )
+    
+    # Add Moving Averages
+    fig.add_trace(
+        go.Scatter(x=df['date'], y=df['SMA_20'], name='SMA 20', line=dict(color='blue')),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['date'], y=df['EMA_20'], name='EMA 20', line=dict(color='orange')),
+        row=1, col=1
+    )
+    
+    # Add Bollinger Bands
+    fig.add_trace(
+        go.Scatter(x=df['date'], y=df['BB_upper'], name='BB Upper',
+                  line=dict(color='gray', dash='dash')),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(x=df['date'], y=df['BB_lower'], name='BB Lower',
+                  line=dict(color='gray', dash='dash'),
+                  fill='tonexty'),
+        row=1, col=1
+    )
+    
+    # Volume chart
+    fig.add_trace(
+        go.Bar(x=df['date'], y=df['volume'], name='Volume'),
+        row=2, col=1
+    )
+    
+    # RSI
+    fig.add_trace(
+        go.Scatter(x=df['date'], y=df['RSI'], name='RSI'),
+        row=3, col=1
+    )
+    # Add RSI levels
+    fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
+    
+    # Update layout
+    fig.update_layout(
+        title=f'{symbol} Technical Analysis',
+        xaxis_title="Date",
+        yaxis_title="Price",
+        height=800,
+        showlegend=True,
+        xaxis_rangeslider_visible=False
+    )
+    
+    return fig
+
+def create_market_metrics(df):
+    """Calculate and display key market metrics"""
+    latest_price = df['close'].iloc[-1]
+    price_change = df['close'].iloc[-1] - df['close'].iloc[-2]
+    price_change_pct = (price_change / df['close'].iloc[-2]) * 100
+    
+    metrics = {
+        "Current Price": f"${latest_price:.2f}",
+        "Price Change": f"${price_change:.2f} ({price_change_pct:.2f}%)",
+        "RSI": f"{df['RSI'].iloc[-1]:.2f}",
+        "Volume": f"{df['volume'].iloc[-1]:,.0f}",
+        "Market Cap": f"${df['market_cap'].iloc[-1]:,.0f}"
+    }
+    
+    return metrics
+
+def main():
+    st.title("Market Analytics Dashboard")
+    
+    # Sidebar
+    st.sidebar.title("Settings")
+    
+    # Symbol selection
+    symbols = DEFAULT_SYMBOLS  # Using the symbols from our DAG
+    selected_symbol = st.sidebar.selectbox("Select Stock Symbol", symbols)
+    
+    # Time range selection
+    time_ranges = {
+        "1 Month": 30,
+        "3 Months": 90,
+        "6 Months": 180,
+        "1 Year": 365
+    }
+    selected_range = st.sidebar.selectbox("Select Time Range", list(time_ranges.keys()))
+    
+    # Technical Indicators selection
+    st.sidebar.subheader("Technical Indicators")
+    show_sma = st.sidebar.checkbox("Show SMA", value=True)
+    show_ema = st.sidebar.checkbox("Show EMA", value=True)
+    show_bb = st.sidebar.checkbox("Show Bollinger Bands", value=True)
+    show_rsi = st.sidebar.checkbox("Show RSI", value=True)
+    
+    # Fetch and process data
+    df = fetch_market_data(selected_symbol, time_ranges[selected_range])
+    
+    if df is not None:
+        # Display market metrics
+        col1, col2, col3, col4, col5 = st.columns(5)
+        metrics = create_market_metrics(df)
+        
+        col1.metric("Price", metrics["Current Price"])
+        col2.metric("Change", metrics["Price Change"])
+        col3.metric("RSI", metrics["RSI"])
+        col4.metric("Volume", metrics["Volume"])
+        col5.metric("Market Cap", metrics["Market Cap"])
+        
+        # Display technical analysis chart
+        st.plotly_chart(create_price_chart(df, selected_symbol), use_container_width=True)
+        
+        # Additional Analysis
+        with st.expander("Technical Analysis Summary"):
+            # RSI Analysis
+            rsi = df['RSI'].iloc[-1]
+            st.write("RSI Analysis:")
+            if rsi > 70:
+                st.warning(f"RSI is overbought at {rsi:.2f}")
+            elif rsi < 30:
+                st.warning(f"RSI is oversold at {rsi:.2f}")
+            else:
+                st.info(f"RSI is neutral at {rsi:.2f}")
+            
+            # Trend Analysis
+            sma_20 = df['SMA_20'].iloc[-1]
+            price = df['close'].iloc[-1]
+            st.write("Trend Analysis:")
+            if price > sma_20:
+                st.success(f"Price is above 20-day SMA (Bullish)")
+            else:
+                st.error(f"Price is below 20-day SMA (Bearish)")
+            
+            # Volatility Analysis
+            bb_upper = df['BB_upper'].iloc[-1]
+            bb_lower = df['BB_lower'].iloc[-1]
+            st.write("Volatility Analysis:")
+            if price >= bb_upper:
+                st.warning("Price at upper Bollinger Band (Potential resistance)")
+            elif price <= bb_lower:
+                st.warning("Price at lower Bollinger Band (Potential support)")
+    else:
+        st.error("Failed to fetch market data")
+
+if __name__ == "__main__":
+    main() 
