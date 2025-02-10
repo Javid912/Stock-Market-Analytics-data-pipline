@@ -55,15 +55,45 @@ class DatabaseLoader:
             data: API response data
         """
         try:
+            # Extract time series data
+            time_series = data.get('Time Series (Daily)', {})
+            if not time_series:
+                logger.warning(f"No time series data found for {symbol}")
+                return
+
+            # Prepare data for bulk insert
+            values = []
+            for date, prices in time_series.items():
+                values.append((
+                    symbol.upper(),
+                    date,
+                    float(prices['1. open']),
+                    float(prices['2. high']),
+                    float(prices['3. low']),
+                    float(prices['4. close']),
+                    int(prices['5. volume'])
+                ))
+
+            # Bulk insert/update
             query = """
-                INSERT INTO raw.daily_prices (symbol, raw_data)
-                VALUES (%s, %s)
-                ON CONFLICT (symbol, extracted_at)
-                DO UPDATE SET raw_data = EXCLUDED.raw_data;
+                INSERT INTO public_raw.raw_stock_prices 
+                (symbol, date, open, high, low, close, volume)
+                VALUES %s
+                ON CONFLICT (symbol, date) 
+                DO UPDATE SET 
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume;
             """
-            self.cursor.execute(query, (symbol.upper(), Json(data)))
+            
+            # Use execute_values for efficient bulk insert
+            from psycopg2.extras import execute_values
+            execute_values(self.cursor, query, values)
+            
             self.conn.commit()
-            logger.info(f"Successfully saved daily prices for {symbol}")
+            logger.info(f"Successfully saved {len(values)} days of price data for {symbol}")
         except Exception as e:
             self.conn.rollback()
             logger.error(f"Error saving daily prices for {symbol}: {str(e)}")

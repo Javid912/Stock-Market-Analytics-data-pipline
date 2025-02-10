@@ -263,6 +263,36 @@ parsed AS (
 )
 ```
 
+### January 29, 2024: DBT Container and Health Check Improvements
+
+#### 1. DBT Container Configuration
+- **Problem Identified**: DBT container health checks causing startup issues
+  * Container stuck in "health: starting" state
+  * Health check running `dbt debug` causing unnecessary load
+  * Blocking dashboard service startup
+
+#### 2. Solution Implementation
+- **Changes Made**:
+  * Removed health check from DBT service
+  * Changed container to run `tail -f /dev/null` to stay alive
+  * Modified dashboard's dependency to use `condition: service_started`
+  * DBT transformations now run through Airflow tasks only
+
+#### 3. Benefits
+- Improved container startup reliability
+- Better separation of concerns:
+  * Container just provides DBT environment
+  * Transformations handled by Airflow DAGs
+  * No unnecessary health check overhead
+- Faster service startup
+- More maintainable configuration
+
+#### 4. Key Learnings
+1. Health checks should be lightweight and focus on service availability
+2. ETL tasks belong in orchestration tools (Airflow), not container startup
+3. Use appropriate dependency conditions (`service_started` vs `service_healthy`)
+4. Keep container responsibilities focused and minimal
+
 ### 4. dbt Components
 
 #### Current Setup
@@ -1198,9 +1228,7 @@ pytest --cov=src
 
 # Run specific test file
 pytest tests/unit/test_alpha_vantage_enhanced.py
-``` 
-
-## Day 12: Airflow DAG Implementation and Enhancement
+``` ## Day 12: Airflow DAG Implementation and Enhancement
 
 ### 1. Market Data Pipeline DAG Implementation
 - **Enhanced DAG Structure**:
@@ -1762,3 +1790,4 @@ pytest --cov=src
 # Run specific test file
 pytest tests/unit/test_alpha_vantage_enhanced.py
 ``` 
+

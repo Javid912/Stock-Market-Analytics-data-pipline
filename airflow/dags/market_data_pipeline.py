@@ -60,6 +60,9 @@ def send_slack_notification(context):
 sys.path.append('/opt/airflow/src')
 from extractors.alpha_vantage import AlphaVantageClient
 
+# Add import for DatabaseLoader
+from loaders.database import DatabaseLoader
+
 # Default stock symbols if not configured in Airflow Variables
 DEFAULT_SYMBOLS = [
     # Tech Companies
@@ -90,39 +93,45 @@ def extract_market_data(**context):
         # Track execution time for monitoring
         start_time = datetime.now()
         
-        for symbol in symbols:
-            try:
-                # Extract both daily prices and company info
-                daily_data = client.get_daily_prices(symbol)
-                company_data = client.get_company_overview(symbol)
-                
-                logger.info(f"Successfully extracted data for {symbol}")
-                successful_extracts += 1
-                
-                # Enhanced metrics for monitoring
-                context['task_instance'].xcom_push(
-                    key=f'daily_data_{symbol}',
-                    value={
-                        'status': 'success',
-                        'timestamp': datetime.now().isoformat(),
-                        'data_points': len(daily_data.get('Time Series (Daily)', {})),
-                        'latest_date': max(daily_data.get('Time Series (Daily)', {}).keys(), default=None)
-                    }
-                )
-                
-            except Exception as e:
-                logger.error(f"Error extracting data for {symbol}: {str(e)}")
-                failed_extracts += 1
-                
-                # Enhanced error tracking
-                context['task_instance'].xcom_push(
-                    key=f'error_{symbol}',
-                    value={
-                        'error': str(e),
-                        'timestamp': datetime.now().isoformat(),
-                        'attempt': context.get('task_instance').try_number
-                    }
-                )
+        # Initialize database loader
+        with DatabaseLoader() as loader:
+            for symbol in symbols:
+                try:
+                    # Extract both daily prices and company info with full history
+                    daily_data = client.get_daily_prices(symbol, output_size='full')
+                    company_data = client.get_company_overview(symbol)
+                    
+                    # Store data in database
+                    loader.save_daily_prices(symbol, daily_data)
+                    loader.save_company_overview(symbol, company_data)
+                    
+                    logger.info(f"Successfully extracted data for {symbol}")
+                    successful_extracts += 1
+                    
+                    # Enhanced metrics for monitoring
+                    context['task_instance'].xcom_push(
+                        key=f'daily_data_{symbol}',
+                        value={
+                            'status': 'success',
+                            'timestamp': datetime.now().isoformat(),
+                            'data_points': len(daily_data.get('Time Series (Daily)', {})),
+                            'latest_date': max(daily_data.get('Time Series (Daily)', {}).keys(), default=None)
+                        }
+                    )
+                    
+                except Exception as e:
+                    logger.error(f"Error extracting data for {symbol}: {str(e)}")
+                    failed_extracts += 1
+                    
+                    # Enhanced error tracking
+                    context['task_instance'].xcom_push(
+                        key=f'error_{symbol}',
+                        value={
+                            'error': str(e),
+                            'timestamp': datetime.now().isoformat(),
+                            'attempt': context.get('task_instance').try_number
+                        }
+                    )
         
         # Calculate execution metrics
         execution_time = (datetime.now() - start_time).total_seconds()
