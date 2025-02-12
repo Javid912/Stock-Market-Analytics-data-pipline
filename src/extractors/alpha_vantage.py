@@ -88,7 +88,7 @@ class AlphaVantageClient:
             logger.error(f"Failed to store API response: {str(e)}")
             # Don't raise the error - we don't want to fail the API call if storage fails
 
-    def _get_sample_data(self, endpoint: str) -> Dict[str, Any]:
+    def _get_sample_data(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """Get sample data for development mode"""
         sample_data_path = os.path.join(
             os.path.dirname(__file__), 
@@ -97,7 +97,42 @@ class AlphaVantageClient:
         )
         try:
             with open(sample_data_path, 'r') as f:
-                return json.load(f)
+                data = json.load(f)
+                
+                # Handle company overview data
+                if endpoint == 'company_overview' and params and 'symbol' in params:
+                    requested_symbol = params['symbol'].upper()
+                    if requested_symbol in data:
+                        return data[requested_symbol]
+                    logger.warning(f"No sample company data for symbol {requested_symbol}")
+                    return {"Note": f"No sample data available for {requested_symbol}"}
+                
+                # Handle daily prices data
+                if endpoint == 'daily_prices' and params and 'symbol' in params:
+                    requested_symbol = params['symbol'].upper()
+                    
+                    # If the requested symbol is in Additional Symbols
+                    if 'Additional Symbols' in data and requested_symbol in data['Additional Symbols']:
+                        # Create a new response with the correct symbol and its data
+                        response = {
+                            "Meta Data": {
+                                "1. Information": "Daily Prices (open, high, low, close) and Volumes",
+                                "2. Symbol": requested_symbol,
+                                "3. Last Refreshed": "2024-01-28",
+                                "4. Output Size": "Compact",
+                                "5. Time Zone": "US/Eastern"
+                            },
+                            "Time Series (Daily)": data['Additional Symbols'][requested_symbol]
+                        }
+                        return response
+                    elif requested_symbol == "AAPL":  # Handle the default AAPL data
+                        return data
+                    
+                    logger.warning(f"No sample price data for symbol {requested_symbol}")
+                    return {"Note": f"No sample data available for {requested_symbol}"}
+                    
+                return data
+                
         except FileNotFoundError:
             logger.warning(f"Sample data file not found: {sample_data_path}")
             return {"Note": "Sample data not available"}
@@ -110,7 +145,7 @@ class AlphaVantageClient:
     def _make_request(self, endpoint: str, params: Dict[str, Any], max_retries: int = 3) -> Dict[str, Any]:
         """Make an API request with retries"""
         if self.development_mode:
-            sample_data = self._get_sample_data(endpoint)
+            sample_data = self._get_sample_data(endpoint, params)
             self._store_api_response(endpoint, params, sample_data)
             return sample_data
 

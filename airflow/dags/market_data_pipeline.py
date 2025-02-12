@@ -66,13 +66,7 @@ from loaders.database import DatabaseLoader
 # Default stock symbols if not configured in Airflow Variables
 DEFAULT_SYMBOLS = [
     # Tech Companies
-    'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META',
-    # Financial
-    'JPM', 'BAC', 'GS', 'V', 'MA',
-    # Industrial
-    'GE', 'BA', 'CAT',
-    # Energy
-    'XOM', 'CVX'
+    'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'META'
 ]
 
 def extract_market_data(**context):
@@ -86,7 +80,7 @@ def extract_market_data(**context):
         
         # Get symbols from Airflow variables with expanded default list
         symbols = Variable.get("stock_symbols", deserialize_json=True,
-                             default_var=DEFAULT_SYMBOLS[:3] if development_mode else DEFAULT_SYMBOLS)  # Use fewer symbols in dev mode
+                             default_var=DEFAULT_SYMBOLS)  # Use same symbols in both dev and prod mode
         
         successful_extracts = 0
         failed_extracts = 0
