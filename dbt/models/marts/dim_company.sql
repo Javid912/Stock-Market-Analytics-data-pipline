@@ -1,58 +1,53 @@
-WITH latest_company_data AS (
-    SELECT 
-        *,
-        ROW_NUMBER() OVER (
-            PARTITION BY symbol 
-            ORDER BY extracted_at DESC
-        ) as rn
-    FROM {{ ref('stg_company_overview') }}
+WITH company_info AS (
+    SELECT * FROM {{ ref('stg_company_info') }}
 ),
 
-latest_trading_stats AS (
+latest_prices AS (
     SELECT 
         symbol,
-        MAX(close_price) as last_close_price,
+        close_price as last_close_price,
+        volume as last_volume,
+        ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trading_date DESC) as rn
+    FROM {{ ref('stg_daily_prices') }}
+),
+
+avg_volumes AS (
+    SELECT
+        symbol,
         AVG(volume) as avg_daily_volume
     FROM {{ ref('stg_daily_prices') }}
     WHERE trading_date >= CURRENT_DATE - INTERVAL '30 days'
     GROUP BY symbol
+),
+
+market_metrics AS (
+    SELECT
+        company_info.symbol,
+        last_close_price * shares_outstanding as market_cap,
+        CASE 
+            WHEN earnings_per_share > 0 THEN last_close_price / earnings_per_share 
+            ELSE NULL 
+        END as pe_ratio
+    FROM company_info
+    JOIN latest_prices ON company_info.symbol = latest_prices.symbol
+    WHERE rn = 1
 )
 
 SELECT
-    -- Company identifiers
     c.symbol,
     c.company_name,
-    
-    -- Company categorization
-    c.exchange,
     c.sector,
     c.industry,
     c.country,
+    c.shares_outstanding,
     c.currency,
-    
-    -- Company description
-    c.description,
-    
-    -- Financial metrics
-    c.market_cap,
-    c.ebitda,
-    c.pe_ratio,
-    c.peg_ratio,
-    c.book_value,
-    c.dividend_per_share,
-    c.dividend_yield,
-    
-    -- Trading metrics
-    c.fifty_two_week_high,
-    c.fifty_two_week_low,
-    c.analyst_target_price,
-    t.last_close_price,
-    t.avg_daily_volume,
-    
-    -- Metadata
-    c.extracted_at,
-    c.transformed_at as last_updated_at
-FROM latest_company_data c
-LEFT JOIN latest_trading_stats t
-    ON c.symbol = t.symbol
-WHERE c.rn = 1  -- Get only the latest record for each company 
+    m.market_cap,
+    m.pe_ratio,
+    lp.last_close_price,
+    av.avg_daily_volume,
+    c.created_at,
+    c.updated_at
+FROM company_info c
+LEFT JOIN market_metrics m ON c.symbol = m.symbol
+LEFT JOIN latest_prices lp ON c.symbol = lp.symbol AND lp.rn = 1
+LEFT JOIN avg_volumes av ON c.symbol = av.symbol 

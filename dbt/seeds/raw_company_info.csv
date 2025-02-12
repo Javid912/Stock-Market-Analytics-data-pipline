@@ -1,0 +1,11 @@
+symbol,company_name,sector,industry,country,shares_outstanding,currency,earnings_per_share
+AAPL,Apple Inc.,Technology,Consumer Electronics,USA,16500000000,USD,6.15
+MSFT,Microsoft Corporation,Technology,Software,USA,7500000000,USD,9.65
+GOOGL,Alphabet Inc.,Technology,Internet Services,USA,6500000000,USD,5.80
+AMZN,Amazon.com Inc.,Technology,E-Commerce,USA,10200000000,USD,2.70
+META,Meta Platforms Inc.,Technology,Social Media,USA,2800000000,USD,8.50
+NVDA,NVIDIA Corporation,Technology,Semiconductors,USA,2500000000,USD,4.20
+TSLA,Tesla Inc.,Technology,Automotive,USA,3200000000,USD,3.60
+CRM,Salesforce.com Inc.,Technology,Software,USA,980000000,USD,3.10
+ADBE,Adobe Inc.,Technology,Software,USA,460000000,USD,10.20
+INTC,Intel Corporation,Technology,Semiconductors,USA,4100000000,USD,1.95 
