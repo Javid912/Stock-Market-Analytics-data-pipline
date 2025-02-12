@@ -80,12 +80,13 @@ def extract_market_data(**context):
     Extract daily stock data for specified symbols with enhanced error handling and logging
     """
     try:
-        # Initialize client with proper error handling
-        client = AlphaVantageClient()
+        # Initialize client with proper error handling - use development mode for testing
+        development_mode = Variable.get("development_mode", default_var="true").lower() == "true"
+        client = AlphaVantageClient(development_mode=development_mode)
         
         # Get symbols from Airflow variables with expanded default list
         symbols = Variable.get("stock_symbols", deserialize_json=True,
-                             default_var=DEFAULT_SYMBOLS)
+                             default_var=DEFAULT_SYMBOLS[:3] if development_mode else DEFAULT_SYMBOLS)  # Use fewer symbols in dev mode
         
         successful_extracts = 0
         failed_extracts = 0
@@ -164,10 +165,9 @@ def extract_market_data(**context):
 
 def verify_data_quality(**context):
     """
-    Comprehensive data quality verification
+    Comprehensive data quality verification reading directly from database
     """
     try:
-        task_instance = context['task_instance']
         symbols = Variable.get("stock_symbols", deserialize_json=True,
                              default_var=DEFAULT_SYMBOLS)
         
@@ -179,33 +179,65 @@ def verify_data_quality(**context):
         
         current_date = datetime.now().date()
         
-        for symbol in symbols:
-            daily_data = task_instance.xcom_pull(key=f'daily_data_{symbol}')
-            
-            if not daily_data or daily_data.get('status') != 'success':
-                quality_checks['missing_data'].append(symbol)
-                continue
-            
-            # Check data freshness
-            latest_date = datetime.fromisoformat(daily_data['latest_date']).date()
-            days_old = (current_date - latest_date).days
-            
-            if days_old > 5:  # Data shouldn't be more than 5 days old
-                quality_checks['stale_data'].append({
-                    'symbol': symbol,
-                    'days_old': days_old,
-                    'latest_date': latest_date.isoformat()
-                })
-            
-            # Check data points (should have at least 100 days of history)
-            if daily_data['data_points'] < 100:
-                quality_checks['data_anomalies'].append({
-                    'symbol': symbol,
-                    'issue': 'insufficient_history',
-                    'data_points': daily_data['data_points']
-                })
+        # Initialize database loader
+        with DatabaseLoader() as loader:
+            # Query to check latest data for each symbol
+            with loader.conn.cursor() as cur:
+                for symbol in symbols:
+                    # Check if we have any data for this symbol
+                    cur.execute("""
+                        SELECT MAX(date) as latest_date, COUNT(*) as data_points
+                        FROM public_raw.raw_stock_prices
+                        WHERE symbol = %s
+                    """, (symbol,))
+                    result = cur.fetchone()
+                    
+                    if not result or not result[0]:  # No data found
+                        quality_checks['missing_data'].append(symbol)
+                        continue
+                    
+                    latest_date = result[0]
+                    data_points = result[1]
+                    
+                    # Check data freshness
+                    days_old = (current_date - latest_date).days
+                    if days_old > 5:  # Data shouldn't be more than 5 days old
+                        quality_checks['stale_data'].append({
+                            'symbol': symbol,
+                            'days_old': days_old,
+                            'latest_date': latest_date.isoformat()
+                        })
+                    
+                    # Check data points (should have at least 100 days of history)
+                    if data_points < 100:
+                        quality_checks['data_anomalies'].append({
+                            'symbol': symbol,
+                            'issue': 'insufficient_history',
+                            'data_points': data_points
+                        })
+                    
+                    # Additional quality checks
+                    cur.execute("""
+                        SELECT COUNT(*) 
+                        FROM public_raw.raw_stock_prices
+                        WHERE symbol = %s 
+                        AND (
+                            open IS NULL OR high IS NULL OR low IS NULL 
+                            OR close IS NULL OR volume IS NULL
+                            OR open = 0 OR high = 0 OR low = 0 
+                            OR close = 0 OR volume = 0
+                        )
+                    """, (symbol,))
+                    invalid_records = cur.fetchone()[0]
+                    
+                    if invalid_records > 0:
+                        quality_checks['data_anomalies'].append({
+                            'symbol': symbol,
+                            'issue': 'invalid_values',
+                            'count': invalid_records
+                        })
         
-        # Push quality metrics
+        # Push quality metrics to XCom (much smaller payload now)
         context['task_instance'].xcom_push(
             key='quality_metrics',
             value=quality_checks
