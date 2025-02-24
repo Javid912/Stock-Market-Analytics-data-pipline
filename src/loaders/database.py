@@ -15,23 +15,30 @@ class DatabaseLoader:
     def __init__(self):
         """Initialize database connection"""
         self.conn_params = {
-            'dbname': os.getenv('POSTGRES_DB', 'airflow'),
-            'user': os.getenv('POSTGRES_USER', 'airflow'),
-            'password': os.getenv('POSTGRES_PASSWORD', 'airflow'),
+            'dbname': os.getenv('POSTGRES_DB', 'postgres'),
+            'user': os.getenv('POSTGRES_USER', 'postgres'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'postgres'),
             'host': os.getenv('POSTGRES_HOST', 'postgres'),
             'port': os.getenv('POSTGRES_PORT', '5432')
         }
         self.conn = None
         self.cursor = None
+        logger.info(f"Initializing DatabaseLoader with connection params: host={self.conn_params['host']}, db={self.conn_params['dbname']}")
 
     def connect(self) -> None:
         """Establish database connection"""
         try:
+            logger.info("Attempting to connect to database...")
             self.conn = psycopg2.connect(**self.conn_params)
             self.cursor = self.conn.cursor()
+            # Test the connection
+            self.cursor.execute("SELECT 1")
+            self.cursor.fetchone()
             logger.info("Successfully connected to the database")
         except Exception as e:
             logger.error(f"Error connecting to the database: {str(e)}")
+            if self.conn:
+                self.conn.close()
             raise
 
     def disconnect(self) -> None:
@@ -61,18 +68,29 @@ class DatabaseLoader:
                 logger.warning(f"No time series data found for {symbol}")
                 return
 
+            # Log the data we're about to insert
+            logger.info(f"Preparing to insert {len(time_series)} records for {symbol}")
+
             # Prepare data for bulk insert
             values = []
             for date, prices in time_series.items():
-                values.append((
-                    symbol.upper(),
-                    date,
-                    float(prices['1. open']),
-                    float(prices['2. high']),
-                    float(prices['3. low']),
-                    float(prices['4. close']),
-                    int(prices['5. volume'])
-                ))
+                try:
+                    values.append((
+                        symbol.upper(),
+                        date,
+                        float(prices.get('1. open', 0)),
+                        float(prices.get('2. high', 0)),
+                        float(prices.get('3. low', 0)),
+                        float(prices.get('4. close', 0)),
+                        int(float(prices.get('5. volume', 0)))
+                    ))
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Error parsing price data for {symbol} on {date}: {str(e)}")
+                    continue
+
+            if not values:
+                logger.warning(f"No valid price data to insert for {symbol}")
+                return
 
             # Bulk insert/update
             query = """

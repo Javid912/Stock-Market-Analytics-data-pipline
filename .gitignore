@@ -101,3 +101,6 @@ docs/development_journal.md
 docs/container_best_practices.md
 docs/internal/
 *.draft.md
+
+# Cursor AI Rules
+.cursorrules

@@ -28,6 +28,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/migrations:/docker-entrypoint-initdb.d
+      - ./sql:/sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres || exit 1"]
       interval: 10s
@@ -107,6 +108,7 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins  # Airflow plugins
       - ./src:/opt/airflow/src  # Source code
       - ./dbt:/dbt  # DBT project files
+      - ./tests:/opt/airflow/tests  # Add this line
       - airflow_logs:/opt/airflow/logs  # Persistent log storage
     ports:
       - "8080:8080"  # Airflow UI port
@@ -148,6 +150,7 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - ./src:/opt/airflow/src
       - ./dbt:/dbt
+      - ./tests:/opt/airflow/tests
       - airflow_logs:/opt/airflow/logs
     networks:
       - datapipe_network
@@ -212,6 +215,38 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # Metabase Service
+  # Business intelligence and analytics platform
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=postgres
+      - MB_DB_PORT=5432
+      - MB_DB_USER=postgres
+      - MB_DB_PASS=postgres
+      - MB_DB_HOST=postgres
+      - MB_ENCRYPTION_SECRET_KEY=your_secret_key_here
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - datapipe_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
 # Network Configuration
 # All services communicate through this internal network

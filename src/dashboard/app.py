@@ -107,7 +107,7 @@ st.markdown("""
 # Load environment variables
 project_root = Path(__file__).parent.parent.parent
 env_path = project_root / '.env'
-    load_dotenv(env_path)
+load_dotenv(env_path)
 
 # Debug environment loading
 if DEBUG:
@@ -115,18 +115,18 @@ if DEBUG:
     logger.info(f"Env file path: {env_path}")
     logger.info(f"Env file exists: {env_path.exists()}")
 
-# Database connection configuration with fallback values
-connection_params = {
+# Database connection parameters
+DB_PARAMS = {
     "dbname": os.getenv("POSTGRES_DB", "postgres"),
-    "user": os.getenv("POSTGRES_USER", "dashboard_user"),
-    "password": os.getenv("POSTGRES_PASSWORD", "dashboard_pass"),
-    "host": os.getenv("POSTGRES_HOST", "172.24.0.2"),  # Docker container's IP
+    "user": os.getenv("POSTGRES_USER", "postgres"),
+    "password": os.getenv("POSTGRES_PASSWORD", "postgres"),
+    "host": os.getenv("POSTGRES_HOST", "postgres"),
     "port": os.getenv("POSTGRES_PORT", "5432")
 }
 
 # Log connection parameters (excluding password)
 logger.info("Database connection parameters:")
-safe_params = {k: v for k, v in connection_params.items() if k != 'password'}
+safe_params = {k: v for k, v in DB_PARAMS.items() if k != 'password'}
 logger.info(f"Connection params: {safe_params}")
 
 # Add connection retry logic
@@ -140,7 +140,7 @@ def get_db_connection():
             logger.info(f"Attempting database connection (Attempt {attempt + 1}/{max_retries})")
             logger.info(f"Using connection parameters: {safe_params}")
             
-            conn = psycopg2.connect(**connection_params, cursor_factory=RealDictCursor)
+            conn = psycopg2.connect(**DB_PARAMS, cursor_factory=RealDictCursor)
             logger.info("Database connection established successfully")
             
             # Verify connection works
@@ -164,7 +164,7 @@ def get_db_connection():
                 # If role doesn't exist, try connecting as superuser
                 if "role" in str(e) and "does not exist" in str(e):
                     logger.info("Trying to connect with default superuser credentials")
-                    connection_params.update({
+                    DB_PARAMS.update({
                         "user": "postgres",
                         "password": "postgres"
                     })
@@ -265,7 +265,7 @@ def check_database_health():
 @st.cache_data(ttl=3600)
 def load_tech_companies():
     try:
-    with get_db_connection() as conn:
+        with get_db_connection() as conn:
             query = """
             SELECT 
                 symbol,
@@ -274,11 +274,11 @@ def load_tech_companies():
                 market_cap,
                 pe_ratio,
                 last_close_price,
-                    avg_daily_volume,
-                    currency
-                FROM public_marts.dim_company
-                WHERE sector IN ('Technology', 'Communication Services')
-                AND market_cap IS NOT NULL
+                avg_daily_volume,
+                currency
+            FROM public_marts.dim_company
+            WHERE sector IN ('Technology', 'Communication Services')
+            AND market_cap IS NOT NULL
             ORDER BY market_cap DESC
             """
             logger.info("Executing tech companies query")
@@ -299,19 +299,19 @@ def load_tech_companies():
 @st.cache_data(ttl=3600)
 def load_stock_prices(symbol):
     try:
-    with get_db_connection() as conn:
+        with get_db_connection() as conn:
             query = f"""
             SELECT 
                 trading_date,
-                    open_price,
-                    high_price,
-                    low_price,
+                open_price,
+                high_price,
+                low_price,
                 close_price,
                 volume
-                FROM public_staging.stg_daily_prices
-                WHERE symbol = '{symbol}'
+            FROM public_staging.stg_daily_prices
+            WHERE symbol = '{symbol}'
             ORDER BY trading_date DESC
-                LIMIT 180
+            LIMIT 180
             """
             if DEBUG:
                 st.sidebar.code(query, language="sql")
@@ -371,145 +371,145 @@ def main():
                 st.warning("No company data available. Please check your database connection and data.")
                 st.stop()
             
-    companies_df["market_cap_billions"] = companies_df["market_cap"] / 1e9
-    filtered_companies = companies_df[companies_df["market_cap_billions"] >= min_market_cap]
+        companies_df["market_cap_billions"] = companies_df["market_cap"] / 1e9
+        filtered_companies = companies_df[companies_df["market_cap_billions"] >= min_market_cap]
 
-            if filtered_companies.empty:
-                st.warning(f"No companies found with market cap >= ${min_market_cap}B")
-                st.stop()
-            
-            if DEBUG:
-                st.sidebar.write("Filtered Companies Shape:", filtered_companies.shape)
-
-            # Market Overview page
-            if page == "Market Overview":
-                st.title("Tech Market Overview")
-                
-                # Market Summary
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    total_market_cap = filtered_companies["market_cap_billions"].sum()
-                    st.metric("Total Market Cap", f"${total_market_cap:.2f}B")
-                with col2:
-                    avg_pe = filtered_companies["pe_ratio"].mean()
-                    st.metric("Average P/E", f"{avg_pe:.2f}")
-                with col3:
-                    company_count = len(filtered_companies)
-                    st.metric("Companies", company_count)
-
-                # Market Cap TreeMap
-                fig = px.treemap(
-                    filtered_companies,
-                    path=[px.Constant("Tech Sector"), "sector", "symbol"],
-                    values="market_cap_billions",
-                    color="market_cap_billions",
-                    hover_data=["company_name", "last_close_price"],
-                    color_continuous_scale="RdBu",
-                    title="Market Cap Distribution"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-            # Company Analysis page
-            elif page == "Company Analysis":
-                st.title("Company Analysis")
-                
-                # Company selector
-    selected_symbol = st.selectbox(
-                    "Select Company",
-                    filtered_companies["symbol"].tolist(),
-                    format_func=lambda x: f"{x} - {filtered_companies[filtered_companies['symbol'] == x].iloc[0]['company_name']}"
-    )
-
-    if selected_symbol:
-                    company = filtered_companies[filtered_companies["symbol"] == selected_symbol].iloc[0]
-                    
-                    # Company header
-                    st.header(f"{company['company_name']} ({selected_symbol})")
+        if filtered_companies.empty:
+            st.warning(f"No companies found with market cap >= ${min_market_cap}B")
+            st.stop()
         
-                    # Key metrics
-                    col1, col2, col3, col4 = st.columns(4)
-        with col1:
-                        st.metric("Market Cap", f"${company['market_cap_billions']:.2f}B")
-                    with col2:
-            st.metric("P/E Ratio", f"{company['pe_ratio']:.2f}" if pd.notna(company['pe_ratio']) else "N/A")
-                    with col3:
-                        st.metric("Last Price", f"${company['last_close_price']:.2f}")
-                    with col4:
-                        st.metric("Avg Volume", f"{company['avg_daily_volume']:,.0f}")
+        if DEBUG:
+            st.sidebar.write("Filtered Companies Shape:", filtered_companies.shape)
 
-                    # Price chart
-            prices_df = load_stock_prices(selected_symbol)
-            if not prices_df.empty:
-                prices_df = prices_df.sort_values("trading_date")
-                        
-                        # Create candlestick chart with volume
-                        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
-                                          vertical_spacing=0.03, row_heights=[0.7, 0.3])
+        # Market Overview page
+        if page == "Market Overview":
+            st.title("Tech Market Overview")
+            
+            # Market Summary
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                total_market_cap = filtered_companies["market_cap_billions"].sum()
+                st.metric("Total Market Cap", f"${total_market_cap:.2f}B")
+            with col2:
+                avg_pe = filtered_companies["pe_ratio"].mean()
+                st.metric("Average P/E", f"{avg_pe:.2f}")
+            with col3:
+                company_count = len(filtered_companies)
+                st.metric("Companies", company_count)
 
-                        fig.add_trace(go.Candlestick(
-                            x=prices_df["trading_date"],
-                            open=prices_df["open_price"],
-                            high=prices_df["high_price"],
-                            low=prices_df["low_price"],
-                            close=prices_df["close_price"],
-                            name="Price"
-                        ), row=1, col=1)
-
-                        fig.add_trace(go.Bar(
-                    x=prices_df["trading_date"],
-                            y=prices_df["volume"],
-                            name="Volume",
-                            marker_color="rgba(0,0,255,0.3)"
-                        ), row=2, col=1)
-
-                fig.update_layout(
-                            title=f"{selected_symbol} - Price History",
-                    xaxis_title="Date",
-                    yaxis_title="Price ($)",
-                            yaxis2_title="Volume",
-                            height=800,
-                            showlegend=False,
-                            xaxis_rangeslider_visible=False
-                )
-                        
-                st.plotly_chart(fig, use_container_width=True)
-
-            # Sector Performance page
-            elif page == "Sector Performance":
-                st.title("Tech Sector Performance")
-                
-                # Sector breakdown
-                sector_stats = filtered_companies.groupby("sector").agg({
-                    "market_cap_billions": "sum",
-                    "symbol": "count"
-                }).reset_index()
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    fig = px.pie(
-                        sector_stats,
-                        values="market_cap_billions",
-                        names="sector",
-                        title="Market Cap by Sector"
-                    )
-                    st.plotly_chart(fig)
-                
-                with col2:
-                    fig = px.bar(
-                        sector_stats,
-                        x="sector",
-                        y="symbol",
-                        title="Number of Companies by Sector"
-                    )
-                    st.plotly_chart(fig)
-
-# Footer
-st.markdown("---")
-            st.markdown(
-                f"Data refreshes hourly. Last update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. "
-                "Built with ❤️ using Streamlit, Plotly, and dbt."
+            # Market Cap TreeMap
+            fig = px.treemap(
+                filtered_companies,
+                path=[px.Constant("Tech Sector"), "sector", "symbol"],
+                values="market_cap_billions",
+                color="market_cap_billions",
+                hover_data=["company_name", "last_close_price"],
+                color_continuous_scale="RdBu",
+                title="Market Cap Distribution"
             )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Company Analysis page
+        elif page == "Company Analysis":
+            st.title("Company Analysis")
+            
+            # Company selector
+            selected_symbol = st.selectbox(
+                "Select Company",
+                filtered_companies["symbol"].tolist(),
+                format_func=lambda x: f"{x} - {filtered_companies[filtered_companies['symbol'] == x].iloc[0]['company_name']}"
+            )
+
+            if selected_symbol:
+                company = filtered_companies[filtered_companies["symbol"] == selected_symbol].iloc[0]
+                
+                # Company header
+                st.header(f"{company['company_name']} ({selected_symbol})")
+            
+                # Key metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Market Cap", f"${company['market_cap_billions']:.2f}B")
+                with col2:
+                    st.metric("P/E Ratio", f"{company['pe_ratio']:.2f}" if pd.notna(company['pe_ratio']) else "N/A")
+                with col3:
+                    st.metric("Last Price", f"${company['last_close_price']:.2f}")
+                with col4:
+                    st.metric("Avg Volume", f"{company['avg_daily_volume']:,.0f}")
+
+                # Price chart
+                prices_df = load_stock_prices(selected_symbol)
+                if not prices_df.empty:
+                    prices_df = prices_df.sort_values("trading_date")
+                    
+                    # Create candlestick chart with volume
+                    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                                      vertical_spacing=0.03, row_heights=[0.7, 0.3])
+
+                    fig.add_trace(go.Candlestick(
+                        x=prices_df["trading_date"],
+                        open=prices_df["open_price"],
+                        high=prices_df["high_price"],
+                        low=prices_df["low_price"],
+                        close=prices_df["close_price"],
+                        name="Price"
+                    ), row=1, col=1)
+
+                    fig.add_trace(go.Bar(
+                        x=prices_df["trading_date"],
+                        y=prices_df["volume"],
+                        name="Volume",
+                        marker_color="rgba(0,0,255,0.3)"
+                    ), row=2, col=1)
+
+                    fig.update_layout(
+                        title=f"{selected_symbol} - Price History",
+                        xaxis_title="Date",
+                        yaxis_title="Price ($)",
+                        yaxis2_title="Volume",
+                        height=800,
+                        showlegend=False,
+                        xaxis_rangeslider_visible=False
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+
+        # Sector Performance page
+        elif page == "Sector Performance":
+            st.title("Tech Sector Performance")
+            
+            # Sector breakdown
+            sector_stats = filtered_companies.groupby("sector").agg({
+                "market_cap_billions": "sum",
+                "symbol": "count"
+            }).reset_index()
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                fig = px.pie(
+                    sector_stats,
+                    values="market_cap_billions",
+                    names="sector",
+                    title="Market Cap by Sector"
+                )
+                st.plotly_chart(fig)
+            
+            with col2:
+                fig = px.bar(
+                    sector_stats,
+                    x="sector",
+                    y="symbol",
+                    title="Number of Companies by Sector"
+                )
+                st.plotly_chart(fig)
+
+        # Footer
+        st.markdown("---")
+        st.markdown(
+            f"Data refreshes hourly. Last update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. "
+            "Built with ❤️ using Streamlit, Plotly, and dbt."
+        )
 
     except Exception as e:
         handle_error(e, "main")
