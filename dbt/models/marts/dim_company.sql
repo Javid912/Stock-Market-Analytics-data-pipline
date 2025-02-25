@@ -41,12 +41,13 @@ SELECT
     c.country,
     c.shares_outstanding,
     c.currency,
+    'NASDAQ' as exchange,
     m.market_cap,
     m.pe_ratio,
     lp.last_close_price,
     av.avg_daily_volume,
     c.created_at,
-    c.updated_at
+    c.updated_at as last_updated_at
 FROM company_info c
 LEFT JOIN market_metrics m ON c.symbol = m.symbol
 LEFT JOIN latest_prices lp ON c.symbol = lp.symbol AND lp.rn = 1

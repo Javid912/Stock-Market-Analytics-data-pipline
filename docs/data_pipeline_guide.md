@@ -207,3 +207,47 @@ Common issues and solutions:
    - Verify API extraction worked
    - Check Airflow logs
    - Verify database connections 
+
+## Data Storage Strategy
+
+### Data Retention Policy
+
+1. **Raw Layer (`public_raw`)**
+   - Retains all historical data indefinitely
+   - Used for audit trail and data lineage
+   - Partitioned by date for efficient storage
+   - Compressed after 90 days
+
+2. **Staging Layer (`public_staging`)**
+   - Keeps 90 days of data
+   - Enables quick reprocessing of recent data
+   - Automated cleanup of older data
+   - Exception: Reference data retained indefinitely
+
+3. **Marts Layer (`public_marts`)**
+   - Stores current and historical snapshots
+   - Dimension tables: Full history with SCD Type 2
+   - Fact tables: Aggregated at different time grains
+   - Retention based on business requirements
+
+### Best Practices
+
+1. **Partitioning Strategy**
+   - Partition large tables by date
+   - Use clustering keys for frequent queries
+   - Balance partition size for optimal performance
+
+2. **Data Archival**
+   - Archive raw data older than 1 year
+   - Compress archived data
+   - Maintain easy access to archived data
+
+3. **Performance Optimization**
+   - Regular vacuum and analyze
+   - Materialized views for common queries
+   - Incremental processing where possible
+
+4. **Storage Efficiency**
+   - Use appropriate data types
+   - Implement column compression
+   - Regular monitoring of storage usage 

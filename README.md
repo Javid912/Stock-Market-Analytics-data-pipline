@@ -115,3 +115,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Add more technical indicators
 - [ ] Enhance monitoring and alerting
 - [ ] Add support for more data sources
+
+## Data Visualization
+
+### Metabase Dashboard
+The project now includes Metabase for data visualization and analytics. Access the dashboard at:
+- URL: http://localhost:3000
+- Default credentials:
+  - Email: admin@admin.com
+  - Password: metabase123
+
+### Features
+- Real-time market data visualization
+- Company performance metrics
+- Technical analysis indicators
+- Custom SQL queries and charts
+
+## Recent Updates
+- Added Metabase for data visualization
+- Implemented data retention policies
+- Enhanced data quality tests
+- Added comprehensive documentation
