@@ -107,7 +107,7 @@ st.markdown("""
 # Load environment variables
 project_root = Path(__file__).parent.parent.parent
 env_path = project_root / '.env'
-load_dotenv(env_path)
+    load_dotenv(env_path)
 
 # Debug environment loading
 if DEBUG:
@@ -297,7 +297,7 @@ def check_database_health():
 @st.cache_data(ttl=3600)
 def load_tech_companies():
     try:
-        with get_db_connection() as conn:
+    with get_db_connection() as conn:
             query = """
             SELECT 
                 symbol,
@@ -331,7 +331,7 @@ def load_tech_companies():
 @st.cache_data(ttl=3600)
 def load_stock_prices(symbol):
     try:
-        with get_db_connection() as conn:
+    with get_db_connection() as conn:
             query = f"""
             SELECT 
                 trading_date,
@@ -403,8 +403,8 @@ def main():
                 st.warning("No company data available. Please check your database connection and data.")
                 st.stop()
             
-        companies_df["market_cap_billions"] = companies_df["market_cap"] / 1e9
-        filtered_companies = companies_df[companies_df["market_cap_billions"] >= min_market_cap]
+    companies_df["market_cap_billions"] = companies_df["market_cap"] / 1e9
+    filtered_companies = companies_df[companies_df["market_cap_billions"] >= min_market_cap]
 
         if filtered_companies.empty:
             st.warning(f"No companies found with market cap >= ${min_market_cap}B")
@@ -446,13 +446,13 @@ def main():
             st.title("Company Analysis")
             
             # Company selector
-            selected_symbol = st.selectbox(
+    selected_symbol = st.selectbox(
                 "Select Company",
                 filtered_companies["symbol"].tolist(),
                 format_func=lambda x: f"{x} - {filtered_companies[filtered_companies['symbol'] == x].iloc[0]['company_name']}"
-            )
+    )
 
-            if selected_symbol:
+    if selected_symbol:
                 company = filtered_companies[filtered_companies["symbol"] == selected_symbol].iloc[0]
                 
                 # Company header
@@ -460,19 +460,19 @@ def main():
         
                 # Key metrics
                 col1, col2, col3, col4 = st.columns(4)
-                with col1:
+        with col1:
                     st.metric("Market Cap", f"${company['market_cap_billions']:.2f}B")
                 with col2:
-                    st.metric("P/E Ratio", f"{company['pe_ratio']:.2f}" if pd.notna(company['pe_ratio']) else "N/A")
+            st.metric("P/E Ratio", f"{company['pe_ratio']:.2f}" if pd.notna(company['pe_ratio']) else "N/A")
                 with col3:
                     st.metric("Last Price", f"${company['last_close_price']:.2f}")
                 with col4:
                     st.metric("Avg Volume", f"{company['avg_daily_volume']:,.0f}")
 
                 # Price chart
-                prices_df = load_stock_prices(selected_symbol)
-                if not prices_df.empty:
-                    prices_df = prices_df.sort_values("trading_date")
+            prices_df = load_stock_prices(selected_symbol)
+            if not prices_df.empty:
+                prices_df = prices_df.sort_values("trading_date")
                     
                     # Create candlestick chart with volume
                     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
@@ -536,8 +536,8 @@ def main():
                 )
                 st.plotly_chart(fig)
 
-        # Footer
-        st.markdown("---")
+# Footer
+st.markdown("---")
         st.markdown(
             f"Data refreshes hourly. Last update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. "
             "Built with ❤️ using Streamlit, Plotly, and dbt."
