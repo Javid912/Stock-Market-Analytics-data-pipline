@@ -1,4 +1,8 @@
+# Git Ignore Configuration
+# Specifies which files and directories Git should not track
+
 # Python
+# Ignore Python bytecode and cache files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -21,6 +25,7 @@ wheels/
 *.egg
 
 # Virtual Environment
+# Ignore virtual environment directories
 .venv/
 venv/
 ENV/
@@ -30,7 +35,8 @@ env/
 .env.test.local
 .env.production.local
 
-# IDE
+# IDE Settings
+# Ignore IDE-specific files and directories
 .idea/
 .vscode/
 *.swp
@@ -43,6 +49,7 @@ env/
 *.sublime-project
 
 # Airflow
+# Ignore Airflow runtime files and logs
 airflow/logs/
 airflow/*.pid
 airflow/*.err
@@ -53,22 +60,26 @@ webserver_config.py
 airflow-webserver.pid
 
 # DBT
+# Ignore DBT compilation artifacts and logs
 dbt/target/
 dbt/dbt_modules/
 dbt/dbt_packages/
 dbt/logs/
 .user.yml
 
-# Environment variables
+# Environment Variables
+# Ignore all .env files except example
 .env
 .env.*
 !.env.example
 
 # Docker
+# Ignore Docker runtime files
 .docker/
 *.env.dashboard
 
 # Operating System
+# Ignore OS-specific files
 .DS_Store
 Thumbs.db
 *.tmp
@@ -77,13 +88,15 @@ Thumbs.db
 *~
 
 # Logs
+# Ignore all types of log files
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Coverage reports
+# Coverage Reports
+# Ignore test coverage reports
 coverage/
 .coverage
 htmlcov/
@@ -97,7 +110,12 @@ coverage.xml
 .hypothesis/
 
 # Development Documents
+# Ignore internal development documents
 docs/development_journal.md
 docs/container_best_practices.md
 docs/internal/
 *.draft.md
+
+# Cursor AI Rules
+# Ignore Cursor-specific configuration
+.cursorrules

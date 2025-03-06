@@ -14,6 +14,7 @@ This project implements a robust data engineering pipeline that processes financ
 - **Monitoring**: Built-in logging and health monitoring for all services
 - **Documentation**: Extensive documentation of models, tests, and best practices
 - **Analytics Dashboard**: Interactive Streamlit dashboard for market analysis and visualization
+- **Resource Optimization**: Support for older hardware with minimal resource requirements
 
 ### Tech Stack
 
@@ -23,7 +24,8 @@ This project implements a robust data engineering pipeline that processes financ
 - **Docker**: Containerization and orchestration
 - **Python (3.9)**: Programming language
 - **Alpha Vantage API**: Financial data source
-- **Streamlit**: Data visualization (coming soon)
+- **Streamlit**: Data visualization dashboard
+- **Metabase**: Business intelligence platform
 
 ## Getting Started
 
@@ -56,12 +58,33 @@ cp .env.example .env
 
 4. Start the services:
 ```bash
+# For standard hardware:
 docker-compose up -d
+
+# For older or resource-constrained hardware:
+docker-compose -f docker-compose-minimal.yml up -d
 ```
 
 5. Access the services:
+- Streamlit Dashboard: http://localhost:8501
+- Metabase: http://localhost:3000 (username: admin@admin.com, password: metabase123)
 - Airflow UI: http://localhost:8080 (username: admin, password: admin)
 - PostgreSQL: localhost:5432
+
+## Performance Optimization
+
+For older or resource-constrained hardware, we provide a minimal Docker Compose configuration:
+
+```bash
+docker-compose -f docker-compose-minimal.yml up -d
+```
+
+This configuration:
+- Reduces memory usage for all containers
+- Limits CPU usage
+- Starts only essential services
+- Optimizes database connections
+- Implements selective computation of technical indicators
 
 ## Project Structure
 
@@ -74,6 +97,7 @@ datapipe-analytics/
 │   └── tests/           # Data tests
 ├── docker/              # Dockerfile definitions
 ├── src/                 # Source code
+│   └── dashboard/       # Streamlit dashboard
 ├── tests/               # Python tests
 └── docs/                # Documentation
 ```
@@ -81,14 +105,14 @@ datapipe-analytics/
 ## Data Models
 
 Our dbt models follow a layered architecture:
-- **Staging (stg_)**: Clean, typed data from raw sources
-- **Intermediate (int_)**: Business logic transformations
-- **Marts**: Final presentation layer for analytics
+- **Raw (public_raw)**: Original data from external sources
+- **Staging (public_staging)**: Clean, typed data from raw sources
+- **Marts (public_marts)**: Business logic transformations for analytics
 
 ## Testing
 
 The project includes:
-- 49 dbt tests covering data quality and business logic
+- dbt tests covering data quality and business logic
 - Python unit tests for data extraction
 - Integration tests for the full pipeline
 - Container health checks
@@ -110,8 +134,31 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Roadmap
 
-- [ ] Add Streamlit dashboard for data visualization
+- [x] Add Streamlit dashboard for data visualization
+- [x] Implement resource optimization for older hardware
+- [x] Add Metabase integration
 - [ ] Implement real-time data processing
 - [ ] Add more technical indicators
 - [ ] Enhance monitoring and alerting
 - [ ] Add support for more data sources
+
+## Data Visualization
+
+### Metabase Dashboard
+The project now includes Metabase for data visualization and analytics. Access the dashboard at:
+- URL: http://localhost:3000
+- Default credentials:
+  - Email: admin@admin.com
+  - Password: metabase123
+
+### Features
+- Real-time market data visualization
+- Company performance metrics
+- Technical analysis indicators
+- Custom SQL queries and charts
+
+## Recent Updates
+- Added Metabase for data visualization
+- Implemented data retention policies
+- Enhanced data quality tests
+- Added comprehensive documentation
