@@ -1,12 +1,20 @@
+# DBT Connection Profiles Configuration
+# This file defines database connection settings for different environments
+
+# Default profile used for development and testing
 default:
+  # The default target to use when no target is specified
   target: dev
+  
+  # Output configurations for different environments
   outputs:
+    # Development environment settings
     dev:
-      type: postgres
-      host: postgres
-      user: postgres
-      password: postgres
-      port: 5432
-      dbname: postgres
-      schema: public
-      threads: 4
+      type: postgres        # Database type
+      host: postgres        # Host name (matches docker service)
+      user: postgres        # Database user
+      password: postgres    # Database password
+      port: 5432           # PostgreSQL default port
+      dbname: postgres      # Database name
+      schema: public        # Default schema
+      threads: 4           # Number of concurrent connections for dbt

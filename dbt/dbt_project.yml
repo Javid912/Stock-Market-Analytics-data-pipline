@@ -1,41 +1,56 @@
+# Project Configuration for Tech Market Analytics
+# This file defines core project settings and model configurations
+
+# Project name and version information
 name: 'tech_market_analytics'
 version: '1.0.0'
 config-version: 2
 
+# Profile name from profiles.yml
 profile: 'default'
 
-model-paths: ["models"]
-seed-paths: ["seeds"]
-test-paths: ["tests"]
-analysis-paths: ["analyses"]
-macro-paths: ["macros"]
+# Directory configurations
+# These paths tell dbt where to find different types of files
+model-paths: ["models"]      # Location of data transformation models
+seed-paths: ["seeds"]        # Location of seed files (static data)
+test-paths: ["tests"]        # Location of custom tests
+analysis-paths: ["analyses"] # Location of analyses
+macro-paths: ["macros"]      # Location of custom macros/functions
 
-target-path: "target"
-clean-targets:
-  - "target"
-  - "dbt_packages"
+# Target directory for compiled SQL and artifacts
+target-path: "target"  
+clean-targets:         # Directories to clean during dbt clean
+  - "target"          # Compiled SQL files
+  - "dbt_packages"    # Downloaded dependencies
 
+# Model configurations
+# Define materialization strategies and schemas for different model types
 models:
   tech_market_analytics:
     staging:
-      +materialized: view
-      +schema: staging
+      +materialized: view     # Staging models as views for flexibility
+      +schema: staging        # Use staging schema for these models
     marts:
-      +materialized: table
-      +schema: marts
+      +materialized: table    # Mart models as tables for query performance
+      +schema: marts         # Use marts schema for these models
 
+# Seed configurations
+# Define how seed files should be loaded into the database
 seeds:
   tech_market_analytics:
+    # Company information seed configuration
     raw_company_info:
-      +schema: raw
-      +quote_columns: false
-      +column_types:
+      +schema: raw           # Load into raw schema
+      +quote_columns: false  # Don't quote column names
+      +column_types:         # Explicitly define column types
         shares_outstanding: bigint
         earnings_per_share: float
+    
+    # Stock prices seed configuration
     raw_stock_prices:
-      +schema: raw
-      +quote_columns: false
-      +column_types:
+      +schema: raw          # Load into raw schema
+      +quote_columns: false # Don't quote column names
+      +column_types:        # Explicitly define column types
         volume: bigint
         open: float
         high: float

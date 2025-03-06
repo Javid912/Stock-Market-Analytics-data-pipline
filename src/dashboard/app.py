@@ -457,7 +457,7 @@ def main():
                 
                 # Company header
                 st.header(f"{company['company_name']} ({selected_symbol})")
-            
+        
                 # Key metrics
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -488,16 +488,16 @@ def main():
                     ), row=1, col=1)
 
                     fig.add_trace(go.Bar(
-                        x=prices_df["trading_date"],
+                    x=prices_df["trading_date"],
                         y=prices_df["volume"],
                         name="Volume",
                         marker_color="rgba(0,0,255,0.3)"
                     ), row=2, col=1)
 
-                    fig.update_layout(
+                fig.update_layout(
                         title=f"{selected_symbol} - Price History",
-                        xaxis_title="Date",
-                        yaxis_title="Price ($)",
+                    xaxis_title="Date",
+                    yaxis_title="Price ($)",
                         yaxis2_title="Volume",
                         height=800,
                         showlegend=False,

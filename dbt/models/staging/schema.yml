@@ -1,124 +1,165 @@
+# Schema Definition for Market Data Models
+# Version 2 enables advanced dbt features and newer syntax
 version: 2
 
+# Source Definitions
+# These define our raw data sources that feed into the dbt models
+# Each source has tables with defined columns and tests
 sources:
-  - name: raw
-    schema: public_raw
+  - name: raw  # Source name used in ref() functions
+    schema: public_raw  # Physical schema in the database
     tables:
+      # Raw stock prices table definition
       - name: raw_stock_prices
-        description: Raw daily stock prices from Alpha Vantage
+        description: Raw daily stock price data from Alpha Vantage
         columns:
           - name: symbol
-            description: Stock symbol
-            tests:
-              - not_null
+            description: Stock ticker symbol
+            tests:  # Data quality tests
+              - not_null  # Symbol must always be present
+          
           - name: date
             description: Trading date
             tests:
-              - not_null
+              - not_null  # Date must always be present
+          
           - name: open
             description: Opening price
+          
           - name: high
             description: Highest price
+          
           - name: low
             description: Lowest price
+          
           - name: close
             description: Closing price
+          
           - name: volume
             description: Trading volume
 
+      # Raw company information table definition
       - name: raw_company_info
         description: Raw company information from Alpha Vantage
         columns:
           - name: symbol
-            description: Stock symbol
+            description: Stock ticker symbol
             tests:
-              - not_null
+              - not_null  # Symbol must always be present
+          
           - name: company_name
             description: Company name
             tests:
-              - not_null
+              - not_null  # Company name must always be present
+          
           - name: sector
             description: Business sector
+          
           - name: industry
-            description: Industry
+            description: Specific industry
+          
           - name: country
-            description: Country
+            description: Country of incorporation
+          
           - name: shares_outstanding
-            description: Shares outstanding
+            description: Number of shares outstanding
+          
           - name: currency
-            description: Currency
+            description: Trading currency
+          
           - name: earnings_per_share
             description: EPS
 
+# Model Definitions
+# These define our transformed data models and their expected schema
 models:
+  # Staging model for daily stock prices
   - name: stg_daily_prices
     description: Cleaned and parsed daily stock prices
     columns:
       - name: symbol
         description: Stock symbol
         tests:
-          - not_null
+          - not_null  # Required field
+      
       - name: trading_date
         description: Date of the trading day
         tests:
-          - not_null
+          - not_null  # Required field
+      
       - name: open_price
         description: Opening price
         tests:
           - not_null
+      
       - name: high_price
         description: Highest price
         tests:
           - not_null
+      
       - name: low_price
         description: Lowest price
         tests:
           - not_null
+      
       - name: close_price
         description: Closing price
         tests:
           - not_null
+      
       - name: volume
         description: Trading volume
         tests:
           - not_null
+      
       - name: extracted_at
         description: Timestamp when data was extracted
         tests:
           - not_null
+      
       - name: transformed_at
         description: Timestamp when data was transformed
         tests:
           - not_null
 
+  # Staging model for company information
   - name: stg_company_info
     description: Cleaned and parsed company information
     columns:
       - name: symbol
         description: Stock symbol
         tests:
-          - not_null
-          - unique
+          - not_null  # Required field
+          - unique    # Each company should appear only once
+      
       - name: company_name
         description: Company name
         tests:
-          - not_null
+          - not_null  # Required field
+      
       - name: sector
         description: Business sector
+      
       - name: industry
         description: Business industry
+      
       - name: country
         description: Country
+      
       - name: shares_outstanding
         description: Shares outstanding
+      
       - name: currency
         description: Currency
+      
       - name: earnings_per_share
         description: EPS
+      
       - name: created_at
         description: Record creation timestamp
         tests:
           - not_null
+      
       - name: updated_at
         description: Record update timestamp
         tests:

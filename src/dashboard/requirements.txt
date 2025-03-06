@@ -1,9 +1,17 @@
-streamlit==1.24.1
-pandas==1.5.3
-plotly==5.18.0
-psycopg2-binary==2.9.9
-python-dotenv==1.0.0
-ta==0.10.2  # Technical Analysis library
-numpy==1.24.3
-requests==2.31.0
-python-dateutil==2.8.2 
+# Dashboard Dependencies
+# Core visualization and interface
+streamlit==1.24.1          # Web application framework
+pandas==1.5.3             # Data manipulation library
+plotly==5.18.0           # Interactive plotting library
+
+# Database connectivity
+psycopg2-binary==2.9.9   # PostgreSQL adapter
+python-dotenv==1.0.0     # Environment variable management
+
+# Technical Analysis
+ta==0.10.2               # Technical Analysis library for financial indicators
+
+# Core dependencies
+numpy==1.24.3           # Numerical computing library
+requests==2.31.0        # HTTP library for API requests
+python-dateutil==2.8.2  # Date utilities for data processing 
