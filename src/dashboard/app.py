@@ -131,35 +131,66 @@ logger.info(f"Connection params: {safe_params}")
 
 # Add connection retry logic
 def get_db_connection():
-    max_retries = 3
+    """
+    Get a database connection with retry logic and connection pooling
+    
+    Returns:
+    --------
+    psycopg2.extensions.connection
+        Database connection object
+    """
+    max_retries = 5
     retry_delay = 2  # seconds
+    
+    # Use connection pooling to improve performance
+    global connection_pool
+    if 'connection_pool' not in globals():
+        connection_pool = None
     
     for attempt in range(max_retries):
         try:
-            # Try to connect with current parameters
+            # Try to use existing connection if it's still valid
+            if connection_pool is not None:
+                try:
+                    # Test if connection is still alive
+                    with connection_pool.cursor() as cur:
+                        cur.execute("SELECT 1")
+                        cur.fetchone()
+                    logger.info("Reusing existing database connection")
+                    return connection_pool
+                except (psycopg2.Error, AttributeError):
+                    # Connection is dead, create a new one
+                    logger.info("Existing connection is dead, creating a new one")
+                    connection_pool = None
+            
+            # Create a new connection
             logger.info(f"Attempting database connection (Attempt {attempt + 1}/{max_retries})")
             logger.info(f"Using connection parameters: {safe_params}")
             
-            conn = psycopg2.connect(**DB_PARAMS, cursor_factory=RealDictCursor)
+            connection_pool = psycopg2.connect(**DB_PARAMS, cursor_factory=RealDictCursor)
+            connection_pool.set_session(autocommit=True)  # Autocommit to avoid transaction issues
             logger.info("Database connection established successfully")
             
             # Verify connection works
-            with conn.cursor() as cur:
+            with connection_pool.cursor() as cur:
                 cur.execute("SELECT 1")
                 cur.fetchone()
             
             if DEBUG:
                 st.sidebar.success(f"Database connection successful! (Attempt {attempt + 1})")
-            return conn
+            return connection_pool
             
         except psycopg2.Error as e:
             error_msg = f"Database Connection Error (Attempt {attempt + 1}/{max_retries}): {str(e)}"
             logger.error(error_msg)
-            logger.error(traceback.format_exc())
+            
+            if DEBUG:
+                st.sidebar.error(error_msg)
             
             if attempt < max_retries - 1:
                 logger.info(f"Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)  # Exponential backoff with max of 30 seconds
                 
                 # If role doesn't exist, try connecting as superuser
                 if "role" in str(e) and "does not exist" in str(e):
@@ -169,9 +200,10 @@ def get_db_connection():
                         "password": "postgres"
                     })
             else:
-                st.error(error_msg)
+                # Last attempt failed, show error in UI
+                st.error(f"Failed to connect to database after {max_retries} attempts. Please check your connection settings.")
                 if DEBUG:
-                    st.sidebar.error(f"Connection Error Details: {str(e)}")
+                    st.error(f"Error details: {str(e)}")
                 raise
 
 # Add system information debugging
@@ -518,31 +550,58 @@ if __name__ == "__main__":
     main()
 
 # Technical Analysis Functions
-def calculate_technical_indicators(df):
-    """Calculate technical indicators for the given dataframe"""
+def calculate_technical_indicators(df, indicators=None):
+    """
+    Calculate technical indicators for the given dataframe
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame with OHLCV data
+    indicators : list, optional
+        List of indicators to calculate. If None, calculates a minimal set.
+        Options: 'sma', 'ema', 'bollinger', 'rsi', 'macd', 'all'
+    
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame with added technical indicators
+    """
     # Ensure we have OHLCV data
     required_columns = ['open', 'high', 'low', 'close', 'volume']
     if not all(col in df.columns for col in required_columns):
         raise ValueError("Missing required OHLCV columns")
     
+    # Default to minimal set if not specified
+    if indicators is None:
+        indicators = ['sma', 'ema']
+    elif 'all' in indicators:
+        indicators = ['sma', 'ema', 'bollinger', 'rsi', 'macd']
+    
     # Moving Averages
-    df['SMA_20'] = ta.trend.sma_indicator(df['close'], window=20)
-    df['EMA_20'] = ta.trend.ema_indicator(df['close'], window=20)
+    if 'sma' in indicators:
+        df['SMA_20'] = ta.trend.sma_indicator(df['close'], window=20)
     
-    # Bollinger Bands
-    bollinger = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
-    df['BB_upper'] = bollinger.bollinger_hband()
-    df['BB_lower'] = bollinger.bollinger_lband()
-    df['BB_middle'] = bollinger.bollinger_mavg()
+    if 'ema' in indicators:
+        df['EMA_20'] = ta.trend.ema_indicator(df['close'], window=20)
     
-    # RSI
-    df['RSI'] = ta.momentum.rsi(df['close'], window=14)
+    # Bollinger Bands - more computationally intensive
+    if 'bollinger' in indicators:
+        bollinger = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
+        df['BB_upper'] = bollinger.bollinger_hband()
+        df['BB_lower'] = bollinger.bollinger_lband()
+        df['BB_middle'] = bollinger.bollinger_mavg()
     
-    # MACD
-    macd = ta.trend.MACD(df['close'])
-    df['MACD'] = macd.macd()
-    df['MACD_signal'] = macd.macd_signal()
-    df['MACD_hist'] = macd.macd_diff()
+    # RSI - momentum indicator
+    if 'rsi' in indicators:
+        df['RSI'] = ta.momentum.rsi(df['close'], window=14)
+    
+    # MACD - trend indicator, more computationally intensive
+    if 'macd' in indicators:
+        macd = ta.trend.MACD(df['close'])
+        df['MACD'] = macd.macd()
+        df['MACD_signal'] = macd.macd_signal()
+        df['MACD_hist'] = macd.macd_diff()
     
     return df
 
