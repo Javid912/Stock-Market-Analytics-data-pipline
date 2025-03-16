@@ -1,0 +1,225 @@
+# Optimized Docker Compose Configuration
+# This file defines services with optimized container configurations for better performance
+
+version: '3.8'
+
+services:
+  # Base Database Service with optimized configuration
+  postgres:
+    image: postgres:13-alpine
+    command: postgres -c shared_buffers=128MB -c max_connections=20 -c work_mem=4MB -c maintenance_work_mem=16MB
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/migrations:/docker-entrypoint-initdb.d
+      - ./sql:/sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+    networks:
+      - datapipe_network
+    restart: unless-stopped
+
+  # Airflow Initialization Service
+  airflow-init:
+    build:
+      context: .
+      dockerfile: docker/airflow-optimized.Dockerfile
+    entrypoint: /bin/bash
+    command: -c 'airflow db init && airflow users create --username admin --password admin --firstname Anonymous --lastname Admin --role Admin --email admin@example.com'
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - datapipe_network
+
+  # Airflow Web Interface with optimized configuration
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: docker/airflow-optimized.Dockerfile
+    command: airflow webserver
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - AIRFLOW__WEBSERVER__WORKERS=1
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - datapipe_network
+    restart: unless-stopped
+
+  # Airflow Scheduler with optimized configuration
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: docker/airflow-optimized.Dockerfile
+    command: airflow scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - AIRFLOW__SCHEDULER__MAX_THREADS=2
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src
+      - airflow_logs:/opt/airflow/logs
+    networks:
+      - datapipe_network
+    restart: unless-stopped
+
+  # DBT Transformation Service with optimized image
+  dbt:
+    build:
+      context: .
+      dockerfile: docker/dbt-optimized.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+    volumes:
+      - ./dbt:/dbt
+    environment:
+      - DBT_PROFILES_DIR=/dbt
+    networks:
+      - datapipe_network
+    command: tail -f /dev/null  # Keep container running
+
+  # Dashboard Service with optimized image
+  dashboard:
+    build:
+      context: .
+      dockerfile: src/dashboard/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - DEBUG=false
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - datapipe_network
+    volumes:
+      - ./src/dashboard:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Metabase Service with optimized configuration
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - MB_DB_TYPE=postgres
+      - MB_DB_DBNAME=${POSTGRES_DB}
+      - MB_DB_PORT=5432
+      - MB_DB_USER=${POSTGRES_USER}
+      - MB_DB_PASS=${POSTGRES_PASSWORD}
+      - MB_DB_HOST=postgres
+      - MB_ENCRYPTION_SECRET_KEY=your_secret_key_here
+      - MB_JETTY_MAXTHREADS=50
+      - MB_JETTY_MINTHREADS=10
+      - MB_CACHE_ENABLED=true
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - datapipe_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+# Network Configuration
+networks:
+  datapipe_network:
+    name: datapipe_network
+
+# Persistent Storage Volumes
+volumes:
+  postgres_data:
+    name: datapipe_postgres_data
+  airflow_logs:
+    name: datapipe_airflow_logs 

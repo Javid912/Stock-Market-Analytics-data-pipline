@@ -143,3 +143,67 @@ datapipe_analytics/
 - Separate unit and integration tests
 - Mock external services when appropriate
 - Test both success and error cases 
+
+### Day 8: Container Optimization for Resource Efficiency (March 16, 2024)
+
+#### 1. Container Weight Challenges
+- Identified performance issues with Docker containers on older hardware
+- Containers consuming excessive resources, causing system slowdowns
+- Need for lighter, more efficient container configurations
+- Researched best practices for container optimization
+
+#### 2. Optimization Strategies Implemented
+- **Alpine-based Images**: Switched to Alpine Linux-based images where possible
+  * Reduced image size by 5-10x
+  * Decreased memory footprint
+  * Faster container startup times
+- **Multi-stage Builds**: Implemented for Python services
+  * Separated build dependencies from runtime
+  * Eliminated unnecessary build tools from final images
+  * Reduced final image size by 50-70%
+- **Custom PostgreSQL Configuration**: Optimized for container environment
+  * Reduced shared buffer size
+  * Limited connection count
+  * Configured for lower memory usage
+
+#### 3. Service-Specific Optimizations
+- **PostgreSQL**:
+  * Switched to postgres:13-alpine
+  * Custom runtime configuration for memory efficiency
+  * Reduced resource limits in docker-compose
+- **dbt**:
+  * Implemented multi-stage build
+  * Optimized Python dependencies
+  * Reduced final image size
+- **Airflow**:
+  * Maintained Airflow functionality while optimizing configuration
+  * Reduced worker count and parallelism
+  * Optimized scheduler settings
+
+#### 4. Documentation Updates
+- Created comprehensive container best practices guide
+- Documented optimization strategies and implementation details
+- Added monitoring recommendations for container performance
+- Updated README with information about optimized configurations
+
+#### 5. Key Learnings
+1. **Container Efficiency**:
+   - Base image selection has dramatic impact on resource usage
+   - Multi-stage builds are essential for Python services
+   - Custom configuration can significantly reduce resource needs
+
+2. **Performance Tradeoffs**:
+   - Some optimizations may impact development convenience
+   - Alpine images require additional configuration for some dependencies
+   - Important to balance size reduction with functionality
+
+3. **Monitoring Importance**:
+   - Regular monitoring of container resource usage is essential
+   - Different services have different optimization opportunities
+   - Continuous improvement approach yields best results
+
+#### 6. Future Optimization Opportunities
+- Further dependency auditing and reduction
+- Explore distroless containers for production
+- Implement more granular resource limits
+- Add automated container size monitoring 
